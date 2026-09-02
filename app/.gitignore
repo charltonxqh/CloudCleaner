@@ -58,3 +58,6 @@ __pycache__/
 # Added by CopilotKit CLI: managed Channel setup credentials and artifacts.
 .env.*
 .copilotkit/artifacts/
+
+# Keep environment template in Git
+!.env.example
