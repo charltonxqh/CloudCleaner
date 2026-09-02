@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "channels": [
+    {
+      "name": "cloudcleaner",
+      "displayName": "cloudcleaner",
+      "providers": {
+        "slack": {
+          "env": {
+            "botToken": "INTELLIGENCE_CHANNEL_CLOUDCLEANER_SLACK_BOT_TOKEN",
+            "signingSecret": "INTELLIGENCE_CHANNEL_CLOUDCLEANER_SLACK_SIGNING_SECRET"
+          }
+        }
+      }
+    }
+  ]
+}
