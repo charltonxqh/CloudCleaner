@@ -2,5 +2,9 @@
 
 
 def route_after_verify(state) -> str:
-    verification = state["verification_results"][-1]
-    return "complete" if verification.verified else "rollback"
+    verifications = state.get("verification_results") or []
+    if not verifications:
+        # Nothing was executed (blocked, not approved, or recommendation
+        # wasn't "stop") - nothing to verify or roll back.
+        return "complete"
+    return "complete" if verifications[-1].verified else "rollback"

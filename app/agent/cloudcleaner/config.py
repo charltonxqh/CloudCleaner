@@ -1,12 +1,25 @@
-"""Backend configuration. Reads environment variables with sane defaults.
-Add settings here as new components need them.
+"""Backend configuration. Reads environment variables (via app/.env) with
+sane defaults. Add settings here as new components need them.
 """
 
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+APP_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(APP_DIR / ".env")
+
+# Top-level constants for simple `from cloudcleaner.config import X` imports.
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 
 
 class Settings:
-    AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
+    AWS_REGION: str = AWS_REGION
+    GROQ_API_KEY: str | None = GROQ_API_KEY
+    GROQ_MODEL: str = GROQ_MODEL
 
     # Safety / Actions / Evaluation settings
     DRY_RUN: bool = os.getenv("CLOUDCLEANER_DRY_RUN", "true").lower() == "true"
