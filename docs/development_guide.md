@@ -148,12 +148,29 @@ Do not use a separate virtual environment at the project root.
 The agent moved from `app/agent/` to `agent/`. A virtualenv stores absolute
 paths, so the old one will not work from the new location:
 
+macOS / Linux:
+
 ```bash
 rm -rf agent/.venv
 cd agent && uv sync --dev
 ```
 
+Windows (PowerShell):
+
+```powershell
+Remove-Item -Recurse -Force agent\.venv
+cd agent
+uv sync --dev
+```
+
 Backend commands are now `cd agent`, not `cd app/agent`.
+
+`uv sync` only installs dependencies. To actually run something, use `uv run`:
+
+```bash
+uv run pytest                     # tests
+uv run python -m scripts.sweep    # scan the account
+```
 
 ---
 
@@ -194,6 +211,12 @@ On macOS / Linux:
 
 ```bash
 source .venv/bin/activate
+```
+
+On Windows (PowerShell):
+
+```powershell
+.venv\Scripts\Activate.ps1
 ```
 
 You should see something similar to:
