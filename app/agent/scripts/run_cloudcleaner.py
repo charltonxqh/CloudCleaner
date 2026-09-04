@@ -1,47 +1,69 @@
-import os
-import sys
+import uuid
 
-from cloudcleaner.config import DRY_RUN
 from cloudcleaner.graph.graph import graph
 
 
 def main():
-    if DRY_RUN:
-        print("DRY RUN — no AWS resources will be changed. Set CLOUDCLEANER_DRY_RUN=false to act.\n")
+    # The graph now carries a checkpointer so the approval node can interrupt,
+    # which means every invoke needs a thread id.
+    result = graph.invoke({}, {"configurable": {"thread_id": str(uuid.uuid4())}})
 
-    result = graph.invoke({})
+    print()
+    print("=== CloudCleaner Result ===")
+    print()
 
-    if result.get("done_reason"):
-        print(f"Finished: {result['done_reason']}")
-        return
+    resource = result.get("resource")
+    if resource:
+        print("Resource:")
+        print(resource.model_dump())
+        print()
 
-    r = result["resource"]
-    print(f"\nResource        {r.resource_id}  {r.name or '-'}  ({r.state})")
-    print(f"Cost            ${r.estimated_monthly_cost}/mo"
-          f"{'  <- still billing while stopped' if r.billing_while_stopped else ''}")
+    aws_evidence = result.get("aws_evidence")
+    if aws_evidence:
+        print("AWS Evidence:")
+        print(aws_evidence.model_dump())
+        print()
 
-    aws = result["aws_evidence"]
-    print(f"Usage           cpu avg {aws.avg_cpu_percent}%  peak {aws.max_cpu_percent}%  "
-          f"idle {aws.idle_days}d")
+    github_evidence = result.get("github_evidence")
+    if github_evidence:
+        print("GitHub Evidence:")
+        print(github_evidence.model_dump())
+        print()
 
-    rec = result["recommendation"]
-    print(f"Recommendation  {rec.action}  ({rec.confidence:.0%}, {rec.severity})")
-    print(f"                {rec.reason}")
+    recommendation = result.get("recommendation")
+    if recommendation:
+        print("Recommendation:")
+        print(recommendation.model_dump())
+        print()
 
-    if result.get("approval"):
-        print(f"Approval        {result['approval'].decision}")
-    for a in result.get("action_results") or []:
-        print(f"Action          {a['action']} -> {a['detail']}")
-    if "verification_passed" in result:
-        print(f"Verified        {result['verification_passed']}")
+    approval = result.get("approval")
+    if approval:
+        print("Approval:")
+        print(approval.model_dump())
+        print()
 
-    print(f"\nReasoning trail: {len(_events())} events -> output/reasoning.jsonl")
+    execution_results = result.get("execution_results")
+    if execution_results:
+        print("Execution:")
+        print(execution_results)
+        print()
 
+    verification_results = result.get("verification_results")
+    if verification_results:
+        print("Verification:")
+        print(verification_results)
+        print()
 
-def _events():
-    from cloudcleaner.evidence.collector import log
-    return log.events
+    rollback_results = result.get("rollback_results")
+    if rollback_results:
+        print("Rollback:")
+        print(rollback_results)
+        print()
+
+    if result.get("error"):
+        print("Error:")
+        print(result["error"])
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

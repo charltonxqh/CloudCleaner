@@ -12,6 +12,7 @@ def investigate_node(state: CloudCleanerState):
         log.emit("investigate", "check", rid, "querying CloudWatch")
         aws_evidence = get_ec2_usage_evidence(rid)
     else:
+        # EBS volumes and Elastic IPs emit no CPU metrics; absence is not a signal.
         aws_evidence = AWSEvidence(idle_days=resource.idle_days)
 
     aws_evidence.estimated_monthly_cost = resource.estimated_monthly_cost
@@ -20,7 +21,7 @@ def investigate_node(state: CloudCleanerState):
     log.emit("investigate", "finding", rid,
              f"cpu avg={aws_evidence.avg_cpu_percent} idle_days={aws_evidence.idle_days}")
 
-    # TODO(teammate): replace with tools/github/ once the GitHub integration lands.
+    # TODO(github workstream): replace with tools/github/{branches,pull_requests}.py
     github_evidence = GitHubEvidence(repo=resource.tags.get("Repo"))
 
     return {"aws_evidence": aws_evidence, "github_evidence": github_evidence}

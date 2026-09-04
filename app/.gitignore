@@ -54,6 +54,7 @@ __pycache__/
 # python
 .venv/
 .langgraph_api/
+*.egg-info/
 
 # Added by CopilotKit CLI: managed Channel setup credentials and artifacts.
 .env.*

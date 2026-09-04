@@ -6,7 +6,12 @@ os.environ.setdefault("CLOUDCLEANER_AI_ENABLED", "false")
 import pytest
 
 from cloudcleaner.fixtures import demo
-from cloudcleaner.graph.routing import after_approval, after_assess, after_detect, after_plan
+from cloudcleaner.graph.routing import (
+    after_assess,
+    after_detect,
+    after_plan,
+    route_after_approval,
+)
 from cloudcleaner.schemas import ApprovalDecision, Recommendation, TeardownPlan, TeardownStep
 
 
@@ -35,12 +40,14 @@ def test_empty_plan_never_reaches_approval():
 
 
 def test_unapproved_plan_never_executes():
-    assert after_approval({"approval": ApprovalDecision(decision="keep")}) == "record"
+    assert route_after_approval({"approval": ApprovalDecision(decision="keep")}) == "record"
 
 
 def test_approved_plan_executes():
     approval = ApprovalDecision(decision="approve", approved_resource_ids=["i-1"])
-    assert after_approval({"approval": approval}) == "execute"
+    # approval_rounds must satisfy policy_result.required_approvals (default 1),
+    # otherwise routing loops back for another round.
+    assert route_after_approval({"approval": approval, "approval_rounds": 1}) == "execute"
 
 
 def test_fixture_sweep_finds_the_idle_stack_and_spares_prod():
@@ -135,8 +142,8 @@ def test_approval_interrupt_executes_on_exact_command():
 
 def test_every_terminal_path_is_recorded():
     """A resource that was looked at must leave a trace, whatever the outcome."""
-    from cloudcleaner.graph.routing import after_approval, after_assess, after_plan
+    from cloudcleaner.graph.routing import after_assess, after_plan, route_after_approval
 
     assert after_assess({"recommendation": _rec("keep")}) == "record"
     assert after_plan({"plan": TeardownPlan(root_resource_id="i-1", blocked=["x"])}) == "record"
-    assert after_approval({"approval": ApprovalDecision(decision="keep")}) == "record"
+    assert route_after_approval({"approval": ApprovalDecision(decision="keep")}) == "record"
