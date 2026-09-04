@@ -7,11 +7,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-APP_DIR = Path(__file__).resolve().parents[2]
-load_dotenv(APP_DIR / ".env")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(PROJECT_ROOT / ".env")
 
-# Kept as an alias: storage/ and evidence/ write under this directory.
-PROJECT_ROOT = APP_DIR
+# Kept as an alias for callers that still import APP_DIR.
+APP_DIR = PROJECT_ROOT
 
 # Top-level constants for simple `from cloudcleaner.config import X` imports.
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")

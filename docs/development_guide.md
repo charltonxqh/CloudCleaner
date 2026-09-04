@@ -76,24 +76,24 @@ CloudCleaner/
 | Component | Folder / File | Responsibility |
 |---|---|---|
 | Frontend / UI | `app/src/src/` | React / Next.js pages, components, dashboard, agent UI |
-| Agent orchestration / LangGraph | `app/agent/cloudcleaner/graph/` | LangGraph state, nodes, edges, routing, workflow control |
-| AWS integration | `app/agent/cloudcleaner/tools/aws/` | Boto3 tools for EC2, EBS, Elastic IP, CloudWatch, cost, actions |
-| GitHub + CI/CD integration | `app/agent/cloudcleaner/tools/github/` | Pull requests, branches, GitHub Actions / CI-CD evidence |
-| Slack integration | `app/agent/cloudcleaner/tools/slack/` | Approval messages, Slack interactions, human-in-the-loop actions |
-| Evidence package | `app/agent/cloudcleaner/evidence/` | Collect, combine, and format evidence from AWS / GitHub / CI-CD |
-| Safety / policy engine | `app/agent/cloudcleaner/policy/` | Deterministic safety rules, impact assessment, action gating |
-| Storage / agent memory | `app/agent/cloudcleaner/storage/` | Investigation history, approval records, agent state / memory |
-| Shared schemas | `app/agent/cloudcleaner/schemas.py` | Shared Pydantic models and data contracts |
-| Backend configuration | `app/agent/cloudcleaner/config.py` | Environment variables and application configuration |
-| Custom API routes | `app/agent/cloudcleaner/api/` | Additional FastAPI routes if required |
-| Backend tests | `app/agent/tests/` | Unit and integration tests for agent/backend components |
-| Backend utility scripts | `app/agent/scripts/` | Independent scripts for testing AWS, GitHub, Slack, etc. |
+| Agent orchestration / LangGraph | `agent/cloudcleaner/graph/` | LangGraph state, nodes, edges, routing, workflow control |
+| AWS integration | `agent/cloudcleaner/tools/aws/` | Boto3 tools for EC2, EBS, Elastic IP, CloudWatch, cost, actions |
+| GitHub + CI/CD integration | `agent/cloudcleaner/tools/github/` | Pull requests, branches, GitHub Actions / CI-CD evidence |
+| Slack integration | `agent/cloudcleaner/tools/slack/` | Approval messages, Slack interactions, human-in-the-loop actions |
+| Evidence package | `agent/cloudcleaner/evidence/` | Collect, combine, and format evidence from AWS / GitHub / CI-CD |
+| Safety / policy engine | `agent/cloudcleaner/policy/` | Deterministic safety rules, impact assessment, action gating |
+| Storage / agent memory | `agent/cloudcleaner/storage/` | Investigation history, approval records, agent state / memory |
+| Shared schemas | `agent/cloudcleaner/schemas.py` | Shared Pydantic models and data contracts |
+| Backend configuration | `agent/cloudcleaner/config.py` | Environment variables and application configuration |
+| Custom API routes | `agent/cloudcleaner/api/` | Additional FastAPI routes if required |
+| Backend tests | `agent/tests/` | Unit and integration tests for agent/backend components |
+| Backend utility scripts | `agent/scripts/` | Independent scripts for testing AWS, GitHub, Slack, etc. |
 | App-level scripts | `app/scripts/` | Scripts generated or used by the frontend/full application |
 | Project documentation | `docs/` | Architecture, agent flow, API contracts, development guide |
 | External references | `references/` | Organiser slides, hackathon documents, external reference material |
 | Infrastructure / deployment | `infra/` | Terraform, AWS deployment configuration, infrastructure setup |
 | Frontend dependencies | `app/src/package.json` | npm packages used by the Next.js frontend |
-| Backend dependencies | `app/agent/pyproject.toml` | Python packages used by the agent/backend |
+| Backend dependencies | `agent/pyproject.toml` | Python packages used by the agent/backend |
 | Local secrets | `.env` | Actual local API keys and credentials — never commit |
 | Environment template | `.env.example` | List of required environment variables without secret values |
 
@@ -129,7 +129,7 @@ Run `npm install`:
 From the project root:
 
 ```bash
-cd app/agent
+cd agent
 uv sync
 ```
 
@@ -181,7 +181,7 @@ Ctrl + C
 From:
 
 ```bash
-cd app/agent
+cd agent
 ```
 
 On macOS / Linux:
@@ -281,7 +281,7 @@ Commit both files.
 Go to:
 
 ```bash
-cd app/agent
+cd agent
 ```
 
 Then:
@@ -395,7 +395,7 @@ npm run dev
 ### Backend
 
 ```bash
-cd app/agent
+cd agent
 uv sync
 source .venv/bin/activate
 ```
@@ -410,21 +410,21 @@ npm install <package>
 ### Add backend dependency
 
 ```bash
-cd app/agent
+cd agent
 uv add <package>
 ```
 
 ### Run backend tests
 
 ```bash
-cd app/agent
+cd agent
 uv run pytest
 ```
 
 ### Run a backend utility script
 
 ```bash
-cd app/agent
+cd agent
 uv run python -m scripts.<script_name>
 ```
 

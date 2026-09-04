@@ -70,7 +70,7 @@ Deliberate safety stance already visible in the code: the model is **forbidden f
 | Tests | `tests/*.py` | All four test files are empty |
 | Docs | `docs/architecture.md`, `agent_flow.md`, `api_contracts.md`, `decisions.md`, `setup.md` | Empty; only `development_guide.md` is written |
 
-**Biggest structural gap:** the frontend is still the **CopilotKit starter demo**. `app/agent/main.py` serves `src.agent.graph` — a todo-list / flight-search / A2UI demo agent on `ChatOpenAI` — not `cloudcleaner.graph.graph`. Nothing in `app/src/src/` mentions CloudCleaner. The agent and the UI are two disconnected projects right now.
+**Biggest structural gap:** the frontend is still the **CopilotKit starter demo**. `agent/main.py` serves `src.agent.graph` — a todo-list / flight-search / A2UI demo agent on `ChatOpenAI` — not `cloudcleaner.graph.graph`. Nothing in `app/src/src/` mentions CloudCleaner. The agent and the UI are two disconnected projects right now.
 
 ### 1.4 Two config bugs worth fixing now
 
