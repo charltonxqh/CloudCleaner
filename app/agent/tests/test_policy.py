@@ -5,7 +5,7 @@ import pytest
 from cloudcleaner.policy import evaluate_action
 from cloudcleaner.policy.metrics import METRICS
 from cloudcleaner.policy.risk import assess_risk
-from cloudcleaner.policy.safety import evaluate_safety
+from cloudcleaner.policy.safety import NEEDS_APPROVAL_RISK_THRESHOLD, evaluate_safety
 from cloudcleaner.schemas import (
     Action,
     ActionType,
@@ -45,19 +45,45 @@ def _reset_metrics():
     METRICS.reset()
 
 
-def test_safety_blocks_prod_environment_stop():
+def test_safety_prod_stop_needs_approval_not_blocked():
+    # Prod no longer hard-blocks - it goes through the normal approval flow,
+    # just with a higher bar (see test below).
     action = _stop_action()
     ctx = _ctx(tags={"Environment": "prod", "Owner": "amanda"})
     result = evaluate_safety(action, ctx, assess_risk(action, ctx))
-    assert result.decision == PolicyDecision.BLOCK
-    assert any(v.rule == "block_prod_stop" for v in result.violations)
+    assert result.decision == PolicyDecision.NEEDS_APPROVAL
 
 
-def test_safety_allows_prod_stop_with_force_override():
-    action = _stop_action(force_override=True)
+def test_safety_prod_stop_requires_one_approval():
+    # Prod goes through the same single-approval tier as any other
+    # NEEDS_APPROVAL case - no special-casing.
+    action = _stop_action()
     ctx = _ctx(tags={"Environment": "prod", "Owner": "amanda"})
     result = evaluate_safety(action, ctx, assess_risk(action, ctx))
-    assert not any(v.rule == "block_prod_stop" for v in result.violations)
+    assert result.required_approvals == 1
+
+
+def test_safety_non_prod_needs_approval_requires_one_approval():
+    action = _stop_action()
+    ctx = _ctx(tags={"Environment": "staging", "Owner": "amanda"}, recent_activity=True)
+    result = evaluate_safety(action, ctx, assess_risk(action, ctx))
+    assert result.decision == PolicyDecision.NEEDS_APPROVAL
+    assert result.required_approvals == 1
+
+
+def test_safety_allow_has_zero_required_approvals():
+    action = _stop_action()
+    ctx = _ctx()  # dev, owned, low risk -> ALLOW
+    result = evaluate_safety(action, ctx, assess_risk(action, ctx))
+    assert result.decision == PolicyDecision.ALLOW
+    assert result.required_approvals == 0
+
+
+def test_safety_force_override_suppresses_missing_owner_violation():
+    action = _stop_action(force_override=True)
+    ctx = _ctx(tags={"Environment": "dev"})  # no Owner tag
+    result = evaluate_safety(action, ctx, assess_risk(action, ctx))
+    assert not any(v.rule == "require_owner_tag" for v in result.violations)
 
 
 def test_safety_flags_missing_owner_tag_as_soft_violation():
@@ -81,7 +107,31 @@ def test_safety_needs_approval_when_no_hard_block_but_medium_risk():
     action = _stop_action()
     ctx = _ctx(tags={"Environment": "staging", "Owner": "amanda"}, recent_activity=True)
     result = evaluate_safety(action, ctx, assess_risk(action, ctx))
-    assert result.risk_assessment.risk_score >= 25
+    assert result.risk_assessment.risk_score >= NEEDS_APPROVAL_RISK_THRESHOLD
+    assert result.decision == PolicyDecision.NEEDS_APPROVAL
+
+
+def test_safety_score_just_below_threshold_allows():
+    action = _stop_action()
+    ctx = _ctx(
+        tags={"Environment": "staging", "Owner": "amanda"},
+        recent_activity=False,
+        estimated_monthly_cost_usd=45.0,
+    )
+    result = evaluate_safety(action, ctx, assess_risk(action, ctx))
+    assert result.risk_assessment.risk_score == NEEDS_APPROVAL_RISK_THRESHOLD - 1
+    assert result.decision == PolicyDecision.ALLOW
+
+
+def test_safety_score_exactly_at_threshold_needs_approval():
+    action = _stop_action()
+    ctx = _ctx(
+        tags={"Environment": "staging", "Owner": "amanda"},
+        recent_activity=False,
+        estimated_monthly_cost_usd=50.0,
+    )
+    result = evaluate_safety(action, ctx, assess_risk(action, ctx))
+    assert result.risk_assessment.risk_score == NEEDS_APPROVAL_RISK_THRESHOLD
     assert result.decision == PolicyDecision.NEEDS_APPROVAL
 
 
@@ -101,6 +151,23 @@ def test_risk_score_high_for_expensive_staging_instance_with_activity():
     )
     risk = assess_risk(action, ctx)
     assert risk.risk_level in (RiskLevel.HIGH, RiskLevel.CRITICAL)
+
+
+def test_risk_score_increases_when_github_pr_still_open():
+    action = _stop_action()
+    base = dict(tags={"Environment": "dev", "Owner": "amanda"}, recent_activity=False)
+    with_open_pr = assess_risk(action, _ctx(**base, github_pr_open=True))
+    without_evidence = assess_risk(action, _ctx(**base, github_pr_open=None))
+    assert with_open_pr.risk_score == without_evidence.risk_score + 20
+    assert any("GitHub" in reason for reason in with_open_pr.reasons)
+
+
+def test_risk_score_unaffected_when_github_pr_closed():
+    action = _stop_action()
+    base = dict(tags={"Environment": "dev", "Owner": "amanda"}, recent_activity=False)
+    closed = assess_risk(action, _ctx(**base, github_pr_open=False))
+    without_evidence = assess_risk(action, _ctx(**base, github_pr_open=None))
+    assert closed.risk_score == without_evidence.risk_score
 
 
 @pytest.mark.parametrize(

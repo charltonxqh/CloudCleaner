@@ -21,12 +21,13 @@ import boto3
 from moto import mock_aws
 
 from cloudcleaner.config import settings
+from cloudcleaner.graph.nodes.approval import approval_node
 from cloudcleaner.graph.nodes.rollback import rollback_action
 from cloudcleaner.graph.nodes.verify import verify_action
+from cloudcleaner.graph.routing import route_after_approval
 from cloudcleaner.policy import evaluate_action
 from cloudcleaner.policy.metrics import METRICS
 from cloudcleaner.schemas import (
-    Action,
     ExecutionResult,
     PolicyDecision,
     PolicyResult,
@@ -88,8 +89,31 @@ def scenario_happy_path(client) -> None:
     print("\n-> COMPLETE." if verification.verified else "\n-> Verification failed, would roll back.")
 
 
-def scenario_blocked_by_prod_tag(client) -> None:
-    _print_header("SCENARIO 2: policy blocks a stop on a prod-tagged instance")
+def scenario_github_evidence_raises_risk(client) -> None:
+    _print_header("SCENARIO 2: an open GitHub PR raises risk enough to need approval")
+    instance_id = _run_instance(client, {"Owner": "amanda", "Environment": "dev"})
+    ctx = ResourceContext(
+        resource_id=instance_id,
+        region="us-east-1",
+        tags={"Owner": "amanda", "Environment": "dev"},
+        state="running",
+        last_state_change=datetime.now(timezone.utc) - timedelta(hours=2),
+        recent_activity=None,  # no CloudWatch data yet - treated conservatively
+        estimated_monthly_cost_usd=60.0,
+        github_pr_open=True,  # the PR that spun this instance up is still open
+    )
+    action = propose_stop_instance(instance_id, "us-east-1", reason="looked idle, but PR #184 still open")
+    policy_result = evaluate_action(action, ctx)
+    _print_model("Action proposed", action)
+    _print_model("Policy result", policy_result)
+    print(
+        f"\n-> {policy_result.decision.value.upper()} "
+        f"({policy_result.required_approvals} approval(s) required): instance not touched yet."
+    )
+
+
+def scenario_prod_needs_approval(client) -> None:
+    _print_header("SCENARIO 3: prod doesn't hard-block anymore - it needs approval like anything else")
     instance_id = _run_instance(client, {"Owner": "amanda", "Environment": "prod"})
     ctx = ResourceContext(
         resource_id=instance_id,
@@ -102,15 +126,26 @@ def scenario_blocked_by_prod_tag(client) -> None:
     policy_result = evaluate_action(action, ctx)
     _print_model("Action proposed", action)
     _print_model("Policy result", policy_result)
-    print(f"\n-> {policy_result.decision.value.upper()}: instance never touched.")
+    print(
+        f"\n-> {policy_result.decision.value.upper()}: "
+        f"requires {policy_result.required_approvals} human approval(s) before execute runs."
+    )
 
-    state = client.describe_instances(InstanceIds=[instance_id])
-    state_name = state["Reservations"][0]["Instances"][0]["State"]["Name"]
-    print(f"   AWS state confirms no action taken: {state_name}")
+    state = {"policy_result": policy_result, "approval_rounds": 0}
+    route = "approval"
+    while route == "approval":
+        state.update(approval_node(state))
+        print(f"   Approval round {state['approval_rounds']}: {state['approval'].reason}")
+        route = route_after_approval(state)
+    print(f"-> All {policy_result.required_approvals} approval(s) collected, ready for EXECUTE.")
+
+    aws_state = client.describe_instances(InstanceIds=[instance_id])
+    state_name = aws_state["Reservations"][0]["Instances"][0]["State"]["Name"]
+    print(f"   AWS state so far (execute hasn't run in this scenario): {state_name}")
 
 
 def scenario_rollback_on_verify_failure(client) -> None:
-    _print_header("SCENARIO 3: verification fails -> automatic rollback")
+    _print_header("SCENARIO 4: verification fails -> automatic rollback")
     instance_id = _run_instance(client, {"Owner": "amanda", "Environment": "dev"})
     action = propose_stop_instance(instance_id, "us-east-1", reason="idle")
     print("Simulating a stop that did not actually take effect (e.g. AWS-side hiccup)...")
@@ -136,7 +171,8 @@ def main() -> None:
     with mock_aws():
         client = boto3.client("ec2", region_name="us-east-1")
         scenario_happy_path(client)
-        scenario_blocked_by_prod_tag(client)
+        scenario_github_evidence_raises_risk(client)
+        scenario_prod_needs_approval(client)
         scenario_rollback_on_verify_failure(client)
 
     _print_header("METRICS SUMMARY")

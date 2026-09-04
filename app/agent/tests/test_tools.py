@@ -5,7 +5,7 @@ import pytest
 from moto import mock_aws
 
 from cloudcleaner.policy.metrics import METRICS
-from cloudcleaner.schemas import ExecutionStatus, ResourceContext
+from cloudcleaner.schemas import ExecutionStatus, PolicyDecision, ResourceContext
 from cloudcleaner.tools.aws.actions import (
     execute_start_instance,
     execute_stop_instance,
@@ -103,7 +103,10 @@ def test_dry_run_does_not_mutate_aws_state(ec2_instance, monkeypatch):
     assert get_instance_state("us-east-1", instance_id) == "running"
 
 
-def test_stop_ec2_instance_tool_blocked_by_policy_for_prod_tag(ec2_instance):
+def test_stop_ec2_instance_tool_does_not_execute_for_prod_tag(ec2_instance):
+    # Prod no longer hard-blocks (see policy/safety.py), it needs approval -
+    # but a raw @tool call has no human-in-the-loop step of its own, so
+    # anything short of ALLOW must still not execute directly here.
     client, instance_id = ec2_instance
     client.create_tags(Resources=[instance_id], Tags=[{"Key": "Environment", "Value": "prod"}])
     ctx = _ctx(instance_id, tags={"Environment": "prod", "Owner": "amanda"})
@@ -115,7 +118,10 @@ def test_stop_ec2_instance_tool_blocked_by_policy_for_prod_tag(ec2_instance):
     command = stop_ec2_instance.func(
         instance_id=instance_id, region="us-east-1", reason="idle", runtime=FakeRuntime()
     )
+    policy_result = command.update["policy_result"]
     execution_result = command.update["execution_results"][0]
+    assert policy_result.decision == PolicyDecision.NEEDS_APPROVAL
+    assert policy_result.required_approvals == 1
     assert execution_result.status == ExecutionStatus.BLOCKED
     assert get_instance_state("us-east-1", instance_id) == "running"
 

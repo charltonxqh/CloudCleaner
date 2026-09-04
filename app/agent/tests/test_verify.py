@@ -43,3 +43,11 @@ def test_verify_start_action_expects_running_state(ec2_instance):
     result = verify_action(action, max_attempts=3, delay_seconds=0)
     assert result.verified is True
     assert result.expected_state == "running"
+
+
+def test_verify_handles_nonexistent_instance_without_crashing():
+    with mock_aws():
+        action = propose_stop_instance("i-doesnotexist12345", "us-east-1", "idle")
+        result = verify_action(action, max_attempts=3, delay_seconds=0)
+    assert result.verified is False
+    assert "lookup failed" in result.actual_state

@@ -2,6 +2,8 @@
 
 import time
 
+from botocore.exceptions import ClientError
+
 from cloudcleaner.config import settings
 from cloudcleaner.graph.state import CloudCleanerState
 from cloudcleaner.schemas import Action, ActionType, ExecutionStatus, VerificationResult
@@ -29,7 +31,19 @@ def verify_action(
 
     actual = "unknown"
     for attempt in range(1, attempts + 1):
-        actual = get_instance_state(action.region, action.resource_id)
+        try:
+            actual = get_instance_state(action.region, action.resource_id)
+        except ClientError as e:
+            # e.g. the instance doesn't exist (or no longer exists) - can't
+            # verify a state that can't even be looked up. Don't crash the
+            # whole pipeline over it; report it as unverified instead.
+            return VerificationResult(
+                action_id=action.id,
+                expected_state=expected,
+                actual_state=f"lookup failed: {e}",
+                verified=False,
+                attempts=attempt,
+            )
         if actual == expected:
             return VerificationResult(
                 action_id=action.id,

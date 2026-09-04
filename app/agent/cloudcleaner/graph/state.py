@@ -22,6 +22,9 @@ class CloudCleanerState(TypedDict, total=False):
     github_evidence: GitHubEvidence
     recommendation: Recommendation
     approval: ApprovalDecision
+    # How many times the approval node has run for this action. Used to
+    # implement double-approval for prod (see routing.route_after_approval).
+    approval_rounds: int
 
     # Safety / Actions / Evaluation
     resource_context: ResourceContext

@@ -21,26 +21,18 @@ SafetyRule = Callable[[Action, ResourceContext], "PolicyViolation | None"]
 
 PROD_TAG_VALUES = {"prod", "production"}
 STOP_COOLDOWN_MINUTES = 15
-NEEDS_APPROVAL_RISK_THRESHOLD = 25
 
+# Raised from 25 - at 25, too many single-medium-signal resources (e.g. just
+# "staging" alone) were tripping NEEDS_APPROVAL. 35 means no single soft
+# signal triggers it alone, but prod-level risk (40) and most genuine
+# multi-signal combinations still clear it comfortably.
+NEEDS_APPROVAL_RISK_THRESHOLD = 35
 
-def rule_block_prod_stop(action: Action, ctx: ResourceContext) -> PolicyViolation | None:
-    """Never stop a resource tagged Environment=prod/production without an
-    explicit human override on the Action.
-    """
-    if action.action_type != ActionType.STOP_INSTANCE:
-        return None
-    env = ctx.tags.get("Environment", ctx.tags.get("env", "")).lower()
-    if env in PROD_TAG_VALUES and not action.force_override:
-        return PolicyViolation(
-            rule="block_prod_stop",
-            message=(
-                f"Refusing to stop prod-tagged instance {ctx.resource_id} "
-                f"(Environment={env}) without force_override"
-            ),
-            hard_block=True,
-        )
-    return None
+# Prod doesn't hard-block anymore - it goes through the same single-approval
+# flow as any other NEEDS_APPROVAL case. (route_after_approval/approval_rounds
+# still support requiring more than one round in general, in case a future
+# rule needs it - nothing currently asks for more than 1.)
+SINGLE_APPROVAL_REQUIRED = 1
 
 
 def rule_require_owner_tag(action: Action, ctx: ResourceContext) -> PolicyViolation | None:
@@ -77,10 +69,13 @@ def rule_block_stop_recently_started(
 
 
 DEFAULT_SAFETY_RULES: list[SafetyRule] = [
-    rule_block_prod_stop,
     rule_require_owner_tag,
     rule_block_stop_recently_started,
 ]
+
+
+def _required_approvals(decision: PolicyDecision) -> int:
+    return SINGLE_APPROVAL_REQUIRED if decision == PolicyDecision.NEEDS_APPROVAL else 0
 
 
 def evaluate_safety(
@@ -100,5 +95,9 @@ def evaluate_safety(
         decision = PolicyDecision.ALLOW
 
     return PolicyResult(
-        action_id=action.id, decision=decision, violations=violations, risk_assessment=risk
+        action_id=action.id,
+        decision=decision,
+        violations=violations,
+        risk_assessment=risk,
+        required_approvals=_required_approvals(decision),
     )

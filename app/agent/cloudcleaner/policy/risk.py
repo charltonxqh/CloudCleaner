@@ -44,6 +44,10 @@ def score_stop_instance(action: Action, ctx: ResourceContext) -> RiskAssessment:
         score += min(int(ctx.estimated_monthly_cost_usd // 10), 20)
         reasons.append(f"est. cost ${ctx.estimated_monthly_cost_usd:.2f}/mo")
 
+    if ctx.github_pr_open:
+        score += 20
+        reasons.append("related GitHub branch/PR still active")
+
     score = min(score, 100)
     return RiskAssessment(
         action_id=action.id, risk_score=score, risk_level=_level_for_score(score), reasons=reasons

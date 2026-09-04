@@ -126,6 +126,10 @@ class ResourceContext(BaseModel):
     age_days: float | None = None
     last_state_change: datetime | None = None
     recent_activity: bool | None = None
+    # True if evidence suggests the related GitHub branch/PR is still active
+    # (branch exists and PR isn't merged/closed). None = no GitHub evidence
+    # available, or this resource has no GitHub linkage at all.
+    github_pr_open: bool | None = None
 
 
 class Action(BaseModel):
@@ -158,6 +162,10 @@ class PolicyResult(BaseModel):
     decision: PolicyDecision
     violations: list[PolicyViolation] = Field(default_factory=list)
     risk_assessment: RiskAssessment
+    # How many separate human approvals are needed before EXECUTE may run.
+    # 0 when decision is ALLOW (no approval needed) or BLOCK (approval can't
+    # help - it's refused outright). Only meaningful when NEEDS_APPROVAL.
+    required_approvals: int = 0
 
 
 class ExecutionResult(BaseModel):

@@ -146,8 +146,13 @@ def stop_ec2_instance(instance_id: str, region: str, reason: str, runtime: ToolR
     ctx: ResourceContext = runtime.state["resource_context"]
     action = propose_stop_instance(instance_id, region, reason)
     policy_result = evaluate_action(action, ctx)
-    if policy_result.decision == PolicyDecision.BLOCK:
-        result = _blocked_result(action, [v.message for v in policy_result.violations])
+    if policy_result.decision != PolicyDecision.ALLOW:
+        # BLOCK or NEEDS_APPROVAL both mean "don't execute directly here" -
+        # a tool call has no human-in-the-loop step of its own, so anything
+        # short of a clean ALLOW must not proceed without going through the
+        # graph's approval flow instead.
+        result = _blocked_result(action, [v.message for v in policy_result.violations] or
+                                  [f"policy decision was '{policy_result.decision.value}', not 'allow'"])
     else:
         result = execute_stop_instance(action)
     return Command(
@@ -167,8 +172,9 @@ def start_ec2_instance(instance_id: str, region: str, reason: str, runtime: Tool
     ctx: ResourceContext = runtime.state["resource_context"]
     action = propose_start_instance(instance_id, region, reason)
     policy_result = evaluate_action(action, ctx)
-    if policy_result.decision == PolicyDecision.BLOCK:
-        result = _blocked_result(action, [v.message for v in policy_result.violations])
+    if policy_result.decision != PolicyDecision.ALLOW:
+        result = _blocked_result(action, [v.message for v in policy_result.violations] or
+                                  [f"policy decision was '{policy_result.decision.value}', not 'allow'"])
     else:
         result = execute_start_instance(action)
     return Command(
