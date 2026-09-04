@@ -1,3 +1,9 @@
+import sys
+from pathlib import Path
+
+parent_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(parent_dir))
+
 from cloudcleaner.tools.aws.client import get_sts_client
 
 
