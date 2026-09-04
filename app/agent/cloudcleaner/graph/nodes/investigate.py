@@ -1,27 +1,26 @@
+from cloudcleaner.evidence.collector import log
 from cloudcleaner.graph.state import CloudCleanerState
 from cloudcleaner.schemas import AWSEvidence, GitHubEvidence
+from cloudcleaner.tools.provider import get_ec2_usage_evidence
 
 
 def investigate_node(state: CloudCleanerState):
-    aws_evidence = AWSEvidence(
-        avg_cpu_percent=1.2,
-        network_in_bytes=1200,
-        network_out_bytes=900,
-        estimated_monthly_cost=60.0,
-    )
+    resource = state["resource"]
+    rid = resource.resource_id
 
-    github_evidence = GitHubEvidence(
-        repo="company/shopping-app",
-        latest_commit_at="2026-08-01T10:00:00Z",
-        pr_number=184,
-        pr_status="merged",
-        branch="feature/payment",
-        branch_exists=False,
-        last_workflow_run_at="2026-08-01T10:30:00Z",
-        scheduled_workflow_exists=False,
-    )
+    if resource.resource_type == "ec2":
+        log.emit("investigate", "check", rid, "querying CloudWatch")
+        aws_evidence = get_ec2_usage_evidence(rid)
+    else:
+        aws_evidence = AWSEvidence(idle_days=resource.idle_days)
 
-    return {
-        "aws_evidence": aws_evidence,
-        "github_evidence": github_evidence,
-    }
+    aws_evidence.estimated_monthly_cost = resource.estimated_monthly_cost
+    aws_evidence.billing_while_stopped = resource.billing_while_stopped
+
+    log.emit("investigate", "finding", rid,
+             f"cpu avg={aws_evidence.avg_cpu_percent} idle_days={aws_evidence.idle_days}")
+
+    # TODO(teammate): replace with tools/github/ once the GitHub integration lands.
+    github_evidence = GitHubEvidence(repo=resource.tags.get("Repo"))
+
+    return {"aws_evidence": aws_evidence, "github_evidence": github_evidence}

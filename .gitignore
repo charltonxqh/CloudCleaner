@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Scratch / reference working files — not part of the submission
+PLAN copy.md
+*.local.md
+
+# Agent runtime artifacts
+output/
+design-system/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Secrets
+.env
+!.env.example

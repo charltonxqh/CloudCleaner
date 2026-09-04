@@ -1,24 +1,22 @@
 import boto3
 
-from cloudcleaner.config import AWS_REGION
+from cloudcleaner.config import AWS_ENDPOINT_URL, AWS_REGION
+
+
+def _client(service: str):
+    kwargs = {"region_name": AWS_REGION}
+    if AWS_ENDPOINT_URL:
+        kwargs["endpoint_url"] = AWS_ENDPOINT_URL
+    return boto3.client(service, **kwargs)
 
 
 def get_ec2_client():
-    return boto3.client(
-        "ec2",
-        region_name=AWS_REGION,
-    )
+    return _client("ec2")
 
 
 def get_cloudwatch_client():
-    return boto3.client(
-        "cloudwatch",
-        region_name=AWS_REGION,
-    )
+    return _client("cloudwatch")
 
 
 def get_sts_client():
-    return boto3.client(
-        "sts",
-        region_name=AWS_REGION,
-    )
+    return _client("sts")

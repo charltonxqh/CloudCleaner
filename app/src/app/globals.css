@@ -1,125 +1,77 @@
-/* CopilotKit brand fonts */
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300..800&family=Spline+Sans+Mono:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@300;400;500;600;700&display=swap");
 
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* CloudCleaner — Swiss/minimal, dense dashboard. Dark-first. */
 
 :root {
-  --background: #ffffff;
-  --foreground: #010507;
+  --bg:            #0b0e14;
+  --surface:       #11151d;
+  --surface-2:     #161b25;
+  --border:        #232a36;
+  --border-strong: #313a4a;
 
-  /* Semantic tokens — CopilotKit brand */
-  --card: #ffffff;
-  --card-foreground: #010507;
-  --primary: #010507;
-  --primary-foreground: #ffffff;
-  --secondary: #ededf5;
-  --secondary-foreground: #010507;
-  --muted: #ededf5;
-  --muted-foreground: #57575b;
-  --accent: #eee6fe;
-  --accent-foreground: #010507;
-  --destructive: #fa5f67;
-  --destructive-foreground: #ffffff;
-  --border: #dbdbe5;
-  --input: #dbdbe5;
-  --ring: #bec2ff;
+  --fg:            #e6ebf2;
+  --fg-muted:      #8e9aad;
+  --fg-faint:      #5d6879;
 
-  /* Chart tokens */
-  --chart-tooltip-bg: #ffffff;
-  --chart-tooltip-border: #dbdbe5;
-  --chart-axis: #57575b;
+  --primary:       #4c8dff;
+  --on-primary:    #06101f;
+  --danger:        #ff5f56;
+  --danger-dim:    #3a1a1a;
+  --warn:          #f0883e;
+  --ok:            #3fb950;
 
-  --radius: 0.75rem;
+  --font-sans: "Fira Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Fira Code", ui-monospace, SFMono-Regular, monospace;
 
-  /* Override CopilotKit font */
-  --cpk-default-font-family: var(--font-body);
-
-  /* Fonts */
-  --font-body: "Plus Jakarta Sans", "DM Sans", "Segoe UI", sans-serif;
-  --font-code:
-    "Spline Sans Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
-
-  /* Brand accent colors */
-  --cpk-mint-400: #85ecce;
-  --cpk-mint-800: #189370;
-  --cpk-lilac-400: #bec2ff;
-  --cpk-orange-400: #ffac4d;
-  --cpk-yellow-400: #fff388;
-  --cpk-ambient-gradient: linear-gradient(
-    90deg,
-    #bec2ff 0%,
-    #85ecce 45.673%,
-    #ffac4d 100%
-  );
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px;
+  --space-4: 16px; --space-6: 24px; --space-8: 32px;
 }
 
-:root.dark,
-.dark {
-  --background: #010507;
-  --foreground: #ffffff;
-
-  --card: #191a1e;
-  --card-foreground: #ffffff;
-  --primary: #ffffff;
-  --primary-foreground: #010507;
-  --secondary: #242529;
-  --secondary-foreground: #ffffff;
-  --muted: #242529;
-  --muted-foreground: #adadb2;
-  --accent: #303136;
-  --accent-foreground: #ffffff;
-  --destructive: #fa5f67;
-  --destructive-foreground: #ffffff;
-  --border: #303136;
-  --input: #303136;
-  --ring: #bec2ff;
-
-  --chart-tooltip-bg: #191a1e;
-  --chart-tooltip-border: #303136;
-  --chart-axis: #adadb2;
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f8fafc; --surface: #ffffff; --surface-2: #f1f5f9;
+    --border: #e2e8f0; --border-strong: #cbd5e1;
+    --fg: #1e293b; --fg-muted: #475569; --fg-faint: #94a3b8;
+    --primary: #2563eb; --on-primary: #ffffff;
+    --danger: #dc2626; --danger-dim: #fee2e2;
+    --warn: #ea580c; --ok: #16a34a;
+  }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-body);
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-body,
-html {
-  height: 100%;
+/* Tabular figures everywhere numbers are compared in a column. */
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.num  { font-variant-numeric: tabular-nums; }
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
-/*
- * Showcase highlight for suggestion pills.
- * Applied via className in use-example-suggestions.tsx when showcase.json
- * is set to a non-default mode (e.g. "a2ui", "opengenui"). Uses CopilotKit
- * brand colors with a subtle tinted background.
- * Add new showcase variants here following the same pattern.
- */
-[data-copilotkit] button[data-slot="suggestion-pill"].a2ui-highlight {
-  border-color: var(--cpk-lilac-400);
-  background: color-mix(in srgb, var(--cpk-lilac-400) 15%, var(--background));
-}
+button { font: inherit; cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.45; }
 
-[data-copilotkit] button[data-slot="suggestion-pill"].opengenui-highlight {
-  border-color: var(--cpk-mint-400);
-  background: color-mix(in srgb, var(--cpk-mint-400) 15%, var(--background));
-}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; }
 
-/*
- * Position the CopilotKit inspector FAB BENEATH the Chat/App toggle in the
- * top-right, instead of the header row where it would overlap it. The gap below
- * the toggle matches the toggle's own 16px gap from the top of the viewport.
- * The toggle is 16px from the top and 46px tall (both breakpoints), so its
- * bottom is at 62px; a 16px gap puts the FAB circle at 78px. The visible circle
- * renders ~16px below the host's `top`, so host top = 78 - 16 = 62px. Right edge
- * matches the toggle's 16px inset.
- */
-cpk-web-inspector {
-  top: 62px !important;
-  bottom: auto !important;
-  right: 16px !important;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

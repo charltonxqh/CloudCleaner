@@ -75,7 +75,7 @@ CloudCleaner/
 
 | Component | Folder / File | Responsibility |
 |---|---|---|
-| Frontend / UI | `app/src/` | React / Next.js pages, components, dashboard, agent UI |
+| Frontend / UI | `app/src/src/` | React / Next.js pages, components, dashboard, agent UI |
 | Agent orchestration / LangGraph | `app/agent/cloudcleaner/graph/` | LangGraph state, nodes, edges, routing, workflow control |
 | AWS integration | `app/agent/cloudcleaner/tools/aws/` | Boto3 tools for EC2, EBS, Elastic IP, CloudWatch, cost, actions |
 | GitHub + CI/CD integration | `app/agent/cloudcleaner/tools/github/` | Pull requests, branches, GitHub Actions / CI-CD evidence |
@@ -92,10 +92,10 @@ CloudCleaner/
 | Project documentation | `docs/` | Architecture, agent flow, API contracts, development guide |
 | External references | `references/` | Organiser slides, hackathon documents, external reference material |
 | Infrastructure / deployment | `infra/` | Terraform, AWS deployment configuration, infrastructure setup |
-| Frontend dependencies | `app/package.json` | npm packages used by the Next.js frontend |
+| Frontend dependencies | `app/src/package.json` | npm packages used by the Next.js frontend |
 | Backend dependencies | `app/agent/pyproject.toml` | Python packages used by the agent/backend |
-| Local secrets | `app/.env` | Actual local API keys and credentials — never commit |
-| Environment template | `app/.env.example` | List of required environment variables without secret values |
+| Local secrets | `.env` | Actual local API keys and credentials — never commit |
+| Environment template | `.env.example` | List of required environment variables without secret values |
 
 ---
 
@@ -136,13 +136,13 @@ uv sync
 `uv sync` reads:
 
 ```text
-app/agent/pyproject.toml
+agent/pyproject.toml
 ```
 
 and creates or updates:
 
 ```text
-app/agent/.venv/
+agent/.venv/
 ```
 
 The backend-local `.venv` is the virtual environment we use for CloudCleaner.
@@ -205,7 +205,7 @@ which python
 It should point to:
 
 ```text
-.../CloudCleaner/app/agent/.venv/bin/python
+.../CloudCleaner/agent/.venv/bin/python
 ```
 
 Deactivate the environment with:
@@ -268,7 +268,7 @@ npm install recharts
 This updates:
 
 ```text
-app/package.json
+frontend/package.json
 app/package-lock.json
 ```
 
@@ -301,8 +301,8 @@ uv add python-dotenv
 This updates:
 
 ```text
-app/agent/pyproject.toml
-app/agent/uv.lock
+agent/pyproject.toml
+agent/uv.lock
 ```
 
 Commit both files.
@@ -330,7 +330,7 @@ for project dependencies so that dependencies are properly recorded for all team
 Actual local secrets are stored in:
 
 ```text
-app/.env
+.env
 ```
 
 Example:
@@ -354,7 +354,7 @@ Never commit `.env`.
 The repository should contain:
 
 ```text
-app/.env.example
+.env.example
 ```
 
 with the same variable names but no secret values.

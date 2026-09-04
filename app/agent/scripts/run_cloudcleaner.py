@@ -1,27 +1,47 @@
+import os
+import sys
+
+from cloudcleaner.config import DRY_RUN
 from cloudcleaner.graph.graph import graph
 
 
-result = graph.invoke({})
+def main():
+    if DRY_RUN:
+        print("DRY RUN — no AWS resources will be changed. Set CLOUDCLEANER_DRY_RUN=false to act.\n")
 
-print("\n=== CLOUDCLEANER ===")
+    result = graph.invoke({})
 
-print("\nResource:")
-print(result["resource"])
+    if result.get("done_reason"):
+        print(f"Finished: {result['done_reason']}")
+        return
 
-print("\nAWS evidence:")
-print(result["aws_evidence"])
+    r = result["resource"]
+    print(f"\nResource        {r.resource_id}  {r.name or '-'}  ({r.state})")
+    print(f"Cost            ${r.estimated_monthly_cost}/mo"
+          f"{'  <- still billing while stopped' if r.billing_while_stopped else ''}")
 
-print("\nGitHub evidence:")
-print(result["github_evidence"])
+    aws = result["aws_evidence"]
+    print(f"Usage           cpu avg {aws.avg_cpu_percent}%  peak {aws.max_cpu_percent}%  "
+          f"idle {aws.idle_days}d")
 
-print("\nRecommendation:")
-print(result["recommendation"])
+    rec = result["recommendation"]
+    print(f"Recommendation  {rec.action}  ({rec.confidence:.0%}, {rec.severity})")
+    print(f"                {rec.reason}")
 
-print("\nApproval:")
-print(result["approval"])
+    if result.get("approval"):
+        print(f"Approval        {result['approval'].decision}")
+    for a in result.get("action_results") or []:
+        print(f"Action          {a['action']} -> {a['detail']}")
+    if "verification_passed" in result:
+        print(f"Verified        {result['verification_passed']}")
 
-print("\nAction:")
-print(result["action_result"])
+    print(f"\nReasoning trail: {len(_events())} events -> output/reasoning.jsonl")
 
-print("\nVerification:")
-print(result["verification_passed"])
+
+def _events():
+    from cloudcleaner.evidence.collector import log
+    return log.events
+
+
+if __name__ == "__main__":
+    sys.exit(main())
