@@ -20,6 +20,7 @@ def main():
     print("PR number:", evidence["pr_number"])
     print("PR status:", evidence["pr_status"])
     print("Branch:", evidence["branch"])
+    print("Branch exists:", evidence["branch_exists"])
     
 
 if __name__ == "__main__":

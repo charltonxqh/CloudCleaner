@@ -1,3 +1,4 @@
+from cloudcleaner.tools.github.branches import branch_exists
 from cloudcleaner.tools.github.client import get_github_client
 
 
@@ -30,10 +31,13 @@ def get_latest_pr_evidence(repo: str) -> dict | None:
     
     if pr is None:
         return None
+
+    branch = pr.head.ref
     
     return {
         "pr_number": pr.number,
         "pr_status": get_pr_status(pr),
-        "branch": pr.head.ref
+        "branch": branch,
+	"branch_exists": branch_exists(repo, branch)
     }
     
