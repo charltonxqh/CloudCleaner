@@ -9,64 +9,56 @@ This guide explains the project structure, component ownership, local developmen
 ```text
 CloudCleaner/
 │
-├── app/
-│   │
-│   ├── src/                         # React / Next.js frontend
-│   │   ├── app/
-│   │   ├── components/
-│   │   ├── hooks/
-│   │   └── lib/
-│   │
-│   ├── public/                      # Static frontend assets
-│   │
-│   ├── agent/                       # Python backend / agent
+├── agent/                           # Python backend / agent
+│   ├── cloudcleaner/
+│   │   ├── config.py
+│   │   ├── schemas.py               # Shared Pydantic contracts (both workstreams)
 │   │   │
-│   │   ├── cloudcleaner/
-│   │   │   ├── __init__.py
-│   │   │   ├── config.py
-│   │   │   ├── schemas.py
-│   │   │   │
-│   │   │   ├── graph/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── state.py
-│   │   │   │   ├── graph.py
-│   │   │   │   ├── routing.py
-│   │   │   │   └── nodes/
-│   │   │   │
-│   │   │   ├── tools/
-│   │   │   │   ├── aws/
-│   │   │   │   ├── github/
-│   │   │   │   └── slack/
-│   │   │   │
-│   │   │   ├── evidence/
-│   │   │   ├── policy/
-│   │   │   ├── storage/
-│   │   │   └── api/                 # Add custom routes only if needed
+│   │   ├── graph/
+│   │   │   ├── state.py
+│   │   │   ├── graph.py
+│   │   │   ├── routing.py
+│   │   │   └── nodes/               # detect, investigate, assess, plan,
+│   │   │                            # policy_check, approval, execute,
+│   │   │                            # verify, rollback, record
+│   │   ├── tools/
+│   │   │   ├── aws/                 # inventory, metrics, cost, volumes,
+│   │   │   │                        # addresses, actions
+│   │   │   ├── github/
+│   │   │   ├── slack/
+│   │   │   └── provider.py          # aws | fixture switch, resolved at call time
 │   │   │
-│   │   ├── scripts/                 # Backend utility/testing scripts
-│   │   ├── tests/                   # Backend tests
-│   │   ├── pyproject.toml           # Python dependencies
-│   │   ├── uv.lock                  # Locked Python dependency versions
-│   │   └── .venv/                   # Backend virtual environment
+│   │   ├── policy/                  # risk scoring, safety rules, dependencies
+│   │   ├── evidence/                # reasoning log
+│   │   ├── storage/                 # run history
+│   │   └── fixtures/                # offline demo stack
 │   │
-│   ├── scripts/                     # App-level/generated scripts
+│   ├── scripts/                     # sweep, connection tests, demo setup
+│   ├── tests/
+│   ├── main.py                      # FastAPI + AG-UI endpoint (port 8123)
+│   ├── pyproject.toml               # Python dependencies
+│   ├── uv.lock
+│   └── .venv/                       # Backend virtual environment
+│
+├── app/                             # Next.js frontend
+│   ├── src/
+│   │   ├── app/                     # routes, layout, globals.css
+│   │   ├── components/cloudcleaner/ # dashboard UI
+│   │   └── lib/api.ts               # typed client for the agent
+│   ├── public/
 │   ├── package.json                 # Frontend dependencies
-│   ├── package-lock.json
-│   ├── next.config.ts
-│   ├── tsconfig.json
-│   ├── .env                         # Local secrets — never commit
-│   └── .env.example                 # Environment variable template
+│   └── next.config.ts
 │
-├── docs/                            # CloudCleaner documentation written by the team
-│   ├── architecture.md
-│   ├── agent_flow.md
-│   ├── api_contracts.md
-│   └── development_guide.md
+├── output/                          # Runtime artifacts (gitignored)
+│   ├── history.jsonl                # run history
+│   ├── reasoning.jsonl              # agent reasoning trail
+│   └── restore/                     # restore recipes
 │
-├── references/                      # External hackathon materials, slides, PDFs, guides
-├── infra/                           # Deployment / Terraform / AWS infrastructure files
-├── .gitignore
-└── README.md
+├── docs/                            # Team documentation
+├── infra/                           # Deployment / Terraform
+├── references/                      # Hackathon PDFs
+├── .env                             # Local secrets — never commit
+└── .env.example                     # Environment variable template
 ```
 
 ---
@@ -148,6 +140,20 @@ agent/.venv/
 The backend-local `.venv` is the virtual environment we use for CloudCleaner.
 
 Do not use a separate virtual environment at the project root.
+
+---
+
+### 3.4 After pulling the directory move (one time)
+
+The agent moved from `app/agent/` to `agent/`. A virtualenv stores absolute
+paths, so the old one will not work from the new location:
+
+```bash
+rm -rf agent/.venv
+cd agent && uv sync --dev
+```
+
+Backend commands are now `cd agent`, not `cd app/agent`.
 
 ---
 
