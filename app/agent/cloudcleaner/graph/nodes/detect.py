@@ -1,24 +1,17 @@
 from cloudcleaner.graph.state import CloudCleanerState
-from cloudcleaner.schemas import CloudResource
+from cloudcleaner.tools.aws.inventory import list_ec2_instances
 
 
-def detect_node(state: CloudCleanerState):
-    resource = CloudResource(
-        resource_id="i-demo123",
-        resource_type="ec2",
-        region="us-east-1",
-        name="preview-pr-184",
-        state="running",
-        project="shopping-app",
-        environment="preview",
-        owner="platform-team",
-        tags={
-            "Temporary": "true",
-            "GitHubRepo": "company/shopping-app",
-            "GitHubPR": "184",
-        },
-    )
+def detect_node(
+    state: CloudCleanerState,
+):
+    resources = list_ec2_instances()
+
+    if not resources:
+        return {
+            "error": "No EC2 instances found."
+        }
 
     return {
-        "resource": resource,
+        "resource": resources[0]
     }

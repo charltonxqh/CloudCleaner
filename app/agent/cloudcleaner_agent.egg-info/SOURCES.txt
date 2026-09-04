@@ -1,9 +1,4 @@
 pyproject.toml
-agent.egg-info/PKG-INFO
-agent.egg-info/SOURCES.txt
-agent.egg-info/dependency_links.txt
-agent.egg-info/requires.txt
-agent.egg-info/top_level.txt
 cloudcleaner/__init__.py
 cloudcleaner/config.py
 cloudcleaner/schemas.py
@@ -43,6 +38,11 @@ cloudcleaner/tools/github/pull_requests.py
 cloudcleaner/tools/slack/__init__.py
 cloudcleaner/tools/slack/approvals.py
 cloudcleaner/tools/slack/messages.py
+cloudcleaner_agent.egg-info/PKG-INFO
+cloudcleaner_agent.egg-info/SOURCES.txt
+cloudcleaner_agent.egg-info/dependency_links.txt
+cloudcleaner_agent.egg-info/requires.txt
+cloudcleaner_agent.egg-info/top_level.txt
 tests/test_evidence.py
 tests/test_graph.py
 tests/test_policy.py
