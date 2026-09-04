@@ -1,27 +1,38 @@
 from cloudcleaner.graph.graph import graph
 
 
-result = graph.invoke({})
+def main():
+    result = graph.invoke({})
 
-print("\n=== CLOUDCLEANER ===")
+    print()
+    print("=== CloudCleaner Result ===")
+    print()
 
-print("\nResource:")
-print(result["resource"])
+    resource = result.get("resource")
 
-print("\nAWS evidence:")
-print(result["aws_evidence"])
+    if resource:
+        print("Resource:")
+        print(resource.model_dump())
+        print()
 
-print("\nGitHub evidence:")
-print(result["github_evidence"])
+    aws_evidence = result.get("aws_evidence")
 
-print("\nRecommendation:")
-print(result["recommendation"])
+    if aws_evidence:
+        print("AWS Evidence:")
+        print(aws_evidence.model_dump())
+        print()
 
-print("\nApproval:")
-print(result["approval"])
+    recommendation = result.get("recommendation")
 
-print("\nAction:")
-print(result["action_result"])
+    if recommendation:
+        print("Recommendation:")
+        print(recommendation.model_dump())
+        print()
 
-print("\nVerification:")
-print(result["verification_passed"])
+    if result.get("error"):
+        print("Error:")
+        print(result["error"])
+
+
+if __name__ == "__main__":
+    main()

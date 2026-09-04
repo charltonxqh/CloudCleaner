@@ -33,6 +33,8 @@ def list_ec2_instances() -> list[CloudResource]:
                     region=instance["Placement"]["AvailabilityZone"][:-1],
                     name=tags.get("Name"),
                     state=instance["State"]["Name"],
+                    instance_type=instance["InstanceType"],
+                    launch_time=instance["LaunchTime"].isoformat(),
                     project=tags.get("Project"),
                     environment=tags.get("Environment"),
                     owner=tags.get("Owner"),

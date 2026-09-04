@@ -17,26 +17,33 @@ def assess_node(state: CloudCleanerState):
     github = state["github_evidence"]
 
     prompt = f"""
-You are CloudCleaner, a cloud lifecycle investigation agent.
+You are CloudCleaner's cloud-resource assessment agent.
 
-Based only on the evidence provided, recommend one of:
-
+Your job is to assess whether a cloud resource should be:
 - keep
 - investigate_more
 - stop
 
-Do not recommend deletion or termination.
+IMPORTANT RULES:
+1. Use ONLY the evidence provided below.
+2. Never invent or assume missing evidence.
+3. A value of None means the evidence is unavailable.
+4. If important evidence is unavailable, prefer "investigate_more".
+5. Do not claim GitHub activity, branches, PRs, workflows, owners,
+   deployments, or usage unless explicitly present in the evidence.
+6. You are making a recommendation only. You are NOT authorizing
+   or executing any action.
 
-Resource:
-{resource.model_dump_json(indent=2)}
+RESOURCE:
+{resource.model_dump()}
 
-AWS evidence:
-{aws.model_dump_json(indent=2)}
+AWS EVIDENCE:
+{aws.model_dump()}
 
-GitHub and CI/CD evidence:
-{github.model_dump_json(indent=2)}
+GITHUB EVIDENCE:
+{github.model_dump()}
 
-Explain the recommendation clearly.
+Return a recommendation based only on this evidence.
 """
 
     structured_model = model.with_structured_output(

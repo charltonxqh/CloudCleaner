@@ -22,10 +22,11 @@ def build_graph():
     builder.add_edge(START, "detect")
     builder.add_edge("detect", "investigate")
     builder.add_edge("investigate", "assess")
-    builder.add_edge("assess", "approval")
-    builder.add_edge("approval", "execute")
-    builder.add_edge("execute", "verify")
-    builder.add_edge("verify", END)
+    builder.add_edge("assess", END)
+    # builder.add_edge("assess", "approval")
+    # builder.add_edge("approval", "execute")
+    # builder.add_edge("execute", "verify")
+    # builder.add_edge("verify", END)
 
     return builder.compile()
 
