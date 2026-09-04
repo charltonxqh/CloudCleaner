@@ -30,3 +30,12 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["cloudcleaner*"]
+
+[dependency-groups]
+dev = [
+    "moto[ec2]>=5.2.3",
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
