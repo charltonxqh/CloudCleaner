@@ -219,7 +219,7 @@ deactivate
 You can also run backend commands directly with `uv`:
 
 ```bash
-uv run python <script.py>
+uv run python -m scripts.<script_name>
 ```
 
 For example:
@@ -231,7 +231,7 @@ uv run pytest
 or:
 
 ```bash
-uv run scripts/test_aws_connection.py
+uv run python -m scripts.test_aws_connection
 ```
 
 ---
@@ -425,7 +425,7 @@ uv run pytest
 
 ```bash
 cd app/agent
-uv run scripts/<script-name>.py
+uv run python -m scripts.<script_name>
 ```
 
 ---

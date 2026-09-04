@@ -1,30 +1,65 @@
 from cloudcleaner.graph.graph import graph
 
 
-result = graph.invoke({})
+def main():
+    result = graph.invoke({})
 
-print("\n=== CLOUDCLEANER ===")
+    print()
+    print("=== CloudCleaner Result ===")
+    print()
 
-print("\nResource:")
-print(result["resource"])
+    resource = result.get("resource")
+    if resource:
+        print("Resource:")
+        print(resource.model_dump())
+        print()
 
-print("\nAWS evidence:")
-print(result["aws_evidence"])
+    aws_evidence = result.get("aws_evidence")
+    if aws_evidence:
+        print("AWS Evidence:")
+        print(aws_evidence.model_dump())
+        print()
 
-print("\nGitHub evidence:")
-print(result["github_evidence"])
+    github_evidence = result.get("github_evidence")
+    if github_evidence:
+        print("GitHub Evidence:")
+        print(github_evidence.model_dump())
+        print()
 
-print("\nRecommendation:")
-print(result["recommendation"])
+    recommendation = result.get("recommendation")
+    if recommendation:
+        print("Recommendation:")
+        print(recommendation.model_dump())
+        print()
 
-print("\nApproval:")
-print(result["approval"])
+    approval = result.get("approval")
+    if approval:
+        print("Approval:")
+        print(approval.model_dump())
+        print()
 
-print("\nExecution:")
-print(result.get("execution_results", []))
+    execution_results = result.get("execution_results")
+    if execution_results:
+        print("Execution:")
+        print(execution_results)
+        print()
 
-print("\nVerification:")
-print(result.get("verification_results", []))
+    verification_results = result.get("verification_results")
+    if verification_results:
+        print("Verification:")
+        print(verification_results)
+        print()
 
-print("\nRollback:")
-print(result.get("rollback_results", []))
+    rollback_results = result.get("rollback_results")
+    if rollback_results:
+        print("Rollback:")
+        print(rollback_results)
+        print()
+
+    if result.get("error"):
+        print("Error:")
+        print(result["error"])
+
+
+if __name__ == "__main__":
+    main()

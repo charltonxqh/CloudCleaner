@@ -24,6 +24,9 @@ class CloudResource(BaseModel):
 
     name: str | None = None
     state: str | None = None
+    
+    instance_type: str | None = None
+    launch_time: str | None = None
 
     project: str | None = None
     environment: str | None = None

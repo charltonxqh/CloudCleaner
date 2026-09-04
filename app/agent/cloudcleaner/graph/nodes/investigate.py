@@ -1,13 +1,13 @@
 from cloudcleaner.graph.state import CloudCleanerState
 from cloudcleaner.schemas import AWSEvidence, GitHubEvidence
+from cloudcleaner.tools.aws.metrics import get_ec2_usage_evidence
 
 
 def investigate_node(state: CloudCleanerState):
-    aws_evidence = AWSEvidence(
-        avg_cpu_percent=1.2,
-        network_in_bytes=1200,
-        network_out_bytes=900,
-        estimated_monthly_cost=60.0,
+    resource = state["resource"]
+    
+    aws_evidence = get_ec2_usage_evidence(
+        resource.resource_id
     )
 
     github_evidence = GitHubEvidence(
