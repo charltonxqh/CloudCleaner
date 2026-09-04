@@ -21,3 +21,5 @@ AWS_REGION = os.getenv(
     "AWS_REGION",
     "us-east-1",
 )
+
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")

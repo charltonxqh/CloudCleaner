@@ -1,3 +1,9 @@
+import sys
+from pathlib import Path
+
+parent_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(parent_dir))
+
 from cloudcleaner.tools.aws.inventory import list_ec2_instances
 from cloudcleaner.tools.aws.metrics import get_ec2_usage_evidence
 

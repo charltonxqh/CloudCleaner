@@ -34,6 +34,7 @@ cloudcleaner/tools/aws/volumes.py
 cloudcleaner/tools/github/__init__.py
 cloudcleaner/tools/github/branches.py
 cloudcleaner/tools/github/cicd.py
+cloudcleaner/tools/github/client.py
 cloudcleaner/tools/github/pull_requests.py
 cloudcleaner/tools/slack/__init__.py
 cloudcleaner/tools/slack/approvals.py
