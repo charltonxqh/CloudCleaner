@@ -42,22 +42,35 @@ def get_ec2_usage_evidence(instance_id: str, days: int | None = None):
     else:
         from cloudcleaner.tools.aws.metrics import get_ec2_usage_evidence as fn
     return fn(instance_id, days)
-
-def get_github_evidence(repo: str | None = None) -> GitHubEvidence | None:
+    
+def get_github_evidence(repo: str | None = None) -> GitHubEvidence:
     if not repo:
-        return None
-        
+        return GitHubEvidence()
+    
+    from github import GithubException
+    
+    from cloudcleaner.tools.github.client import get_github_client
     from cloudcleaner.tools.github.commits import get_latest_commit_evidence
     from cloudcleaner.tools.github.pull_requests import get_latest_pr_evidence
     from cloudcleaner.tools.github.cicd import get_cicd_evidence
-
+    
+    github = get_github_client()
+    
+    try:
+        github.get_repo(repo)
+    except GithubException as exc:
+        if exc.status == 404:
+            return GitHubEvidence(repo=repo)
+        raise
+        
     commit_evidence = get_latest_commit_evidence(repo) or {}
     pr_evidence = get_latest_pr_evidence(repo) or {}
     cicd_evidence = get_cicd_evidence(repo) or {}
-
+    
     return GitHubEvidence(
         repo=repo,
         **commit_evidence,
         **pr_evidence,
         **cicd_evidence,
     )
+    
