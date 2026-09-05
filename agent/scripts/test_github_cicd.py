@@ -12,17 +12,17 @@ from cloudcleaner.tools.github.cicd import (
 
 
 def main():
-    repo = "remarkablemark/github-actions-workflows"
+    repo = "PyGithub/PyGithub"
     print("_Repo WITH SCHEDULED workflow(s)_")
         
     print("CI/CD evidence:", get_cicd_evidence(repo), "\n")
     
-    repo = "nus-test/nus-test.github.io"
+    repo = "pytest-dev/pytest-bdd"
     print("_Repo WITHOUT SCHEDULED workflow(s)_")
     
     print("CI/CD evidence:", get_cicd_evidence(repo), "\n")
     
-    repo = "wkxcass/CloudCleaner"
+    repo = "github-samples/.github"
     print("_Repo WITHOUT workflows_")
         
     print("CI/CD evidence:", get_cicd_evidence(repo))

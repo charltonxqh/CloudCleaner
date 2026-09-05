@@ -9,7 +9,7 @@ from cloudcleaner.tools.provider import get_github_evidence
 
 def main():
     # Test 1: Repository with GitHub activity
-    repo = "nus-test/nus-test.github.io"
+    repo = "PyGithub/PyGithub"
     
     print(f"Testing GitHub evidence for: {repo}")
     evidence = get_github_evidence(repo)
