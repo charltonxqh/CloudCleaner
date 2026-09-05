@@ -9,7 +9,7 @@ INSTANCES = [
         launch_time="2026-06-14T09:12:00+00:00",
         project="payments", environment="dev", owner="hayden",
         tags={"Name": "payments-poc", "Project": "payments",
-              "Environment": "dev", "Owner": "hayden", "Repo": "company/payments"},
+              "Environment": "dev", "Owner": "hayden", "Repo": "wkxcass/cloudcleaner-demo-payments"},
     ),
     CloudResource(
         resource_id="i-0999prod888", resource_type="ec2", region="us-east-1",
