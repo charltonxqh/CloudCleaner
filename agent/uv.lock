@@ -377,6 +377,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pygithub" },
     { name = "python-dotenv" },
+    { name = "pyyaml" },
     { name = "uvicorn" },
 ]
 
@@ -404,6 +405,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0.0,<3.0.0" },
     { name = "pygithub", specifier = ">=2.10.0" },
     { name = "python-dotenv", specifier = ">=1.0.0,<2.0.0" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "uvicorn", specifier = ">=0.29.0,<1.0.0" },
 ]
 
