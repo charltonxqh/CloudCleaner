@@ -146,14 +146,16 @@ function GithubEvidencePanel({ g }: { g: GitHubEvidence }) {
 }
 
 export function InvestigationView({
-  data, result, onApprove, onForcePlan, onBack, approving, busy,
+  data, result, onApprove, onForcePlan, onReinvestigate, onBack, approving, busy, stale,
 }: {
   data: Investigation | null;
   result: ApprovalResult | null;
   approving: boolean;
   busy: boolean;
+  stale: boolean;
   onApprove: (command: string) => void;
   onForcePlan: () => void;
+  onReinvestigate: () => void;
   onBack: () => void;
 }) {
   const [command, setCommand] = useState("");

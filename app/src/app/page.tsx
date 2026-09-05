@@ -12,7 +12,8 @@ import { ResourcesView } from "@/components/cloudcleaner/views/resources";
 import {
   api, money,
   type ApprovalResult, type HistoryTotals, type Investigation,
-  type ReasoningEvent, type Recommendation, type Resource, type Run, type SweepResult,
+  type EventStats, type ReasoningEvent, type Recommendation,
+  type Resource, type Run, type SweepResult,
 } from "@/lib/api";
 
 const SUBTITLE: Record<ViewId, string> = {
@@ -32,6 +33,11 @@ export default function Home() {
   const [busy, setBusy] = useState<string | null>(null);
   const [investigation, setInvestigation] = useState<Investigation | null>(null);
   const [result, setResult] = useState<ApprovalResult | null>(null);
+  // Investigations are cached per resource so returning to one is instant.
+  // Re-running costs an LLM call, a GitHub call and a row in history, so it is
+  // something the user asks for rather than a side effect of navigating.
+  const [cache, setCache] = useState<Record<string, Investigation>>({});
+  const [stale, setStale] = useState<Set<string>>(new Set());
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,6 +47,7 @@ export default function Home() {
 
   const [runs, setRuns] = useState<Run[]>([]);
   const [historyTotals, setHistoryTotals] = useState<HistoryTotals | null>(null);
+  const [eventStats, setEventStats] = useState<EventStats | null>(null);
   const [events, setEvents] = useState<ReasoningEvent[]>([]);
 
   const load = useCallback(async (refresh = false) => {
@@ -51,38 +58,51 @@ export default function Home() {
         .filter((r) => inv.wasting.includes(r.resource_id))
         .reduce((s, r) => s + (r.estimated_monthly_cost ?? 0), 0);
       setTotals({ total: inv.total_monthly, wasting });
+      if (refresh) setStale(new Set(Object.keys(cache)));
       setError(null);
     } catch {
       setError("Cannot reach the agent on :8123. Start it with `npm run dev`.");
     }
-  }, []);
+  }, [cache]);
 
   const loadHistory = useCallback(async () => {
     try {
       const h = await api.history();
       setRuns(h.runs);
       setHistoryTotals(h.totals);
+      setEventStats(h.stats);
     } catch { /* history is non-critical */ }
   }, []);
 
   useEffect(() => { load(); loadHistory(); }, [load, loadHistory]);
 
-  async function investigate(r: Resource, forcePlan = false) {
-    setSelected(r.resource_id);
-    setBusy(r.resource_id);
-    setInvestigation(null);
+  async function investigate(r: Resource, opts: { force?: boolean; forcePlan?: boolean } = {}) {
+    const id = r.resource_id;
+    setSelected(id);
     setResult(null);
     setView("investigation");
+
+    const cached = cache[id];
+    if (cached && !opts.force && !opts.forcePlan) {
+      setInvestigation(cached);
+      setEvents(cached.reasoning);
+      return;
+    }
+
+    setBusy(id);
+    setInvestigation(null);
     try {
-      const data = await api.investigate(r.resource_id, forcePlan);
+      const data = await api.investigate(id, opts.forcePlan ?? false);
       setInvestigation(data);
       setEvents(data.reasoning);
+      setCache((c) => ({ ...c, [id]: data }));
+      setStale((s) => { const n = new Set(s); n.delete(id); return n; });
       if (data.recommendation) {
-        setVerdicts((v) => ({ ...v, [r.resource_id]: data.recommendation!.action }));
+        setVerdicts((v) => ({ ...v, [id]: data.recommendation!.action }));
       }
       if (!data.awaiting_approval) loadHistory();
     } catch {
-      setError(`Investigation failed for ${r.resource_id}.`);
+      setError(`Investigation failed for ${id}.`);
     } finally {
       setBusy(null);
     }
@@ -94,6 +114,8 @@ export default function Home() {
       const s = await api.sweep();
       setSweep(s);
       setEvents(s.reasoning);
+      setCache({});
+      setStale(new Set());
       setVerdicts(
         Object.fromEntries(
           s.results.filter((r) => r.action).map((r) => [r.resource_id, r.action!])
@@ -115,6 +137,12 @@ export default function Home() {
       const r = await api.approve(investigation.thread_id, command);
       setResult(r);
       setEvents(r.reasoning);
+      // The resource changed underneath us, so the cached view no longer holds.
+      setCache((c) => {
+        const next = { ...c };
+        delete next[investigation.resource.resource_id];
+        return next;
+      });
       await Promise.all([load(true), loadHistory()]);
     } catch {
       setError("Approval failed.");
@@ -193,14 +221,21 @@ export default function Home() {
               approving={approving}
               onApprove={approve}
               onBack={() => setView("resources")}
+              stale={selected ? stale.has(selected) : false}
+              onReinvestigate={() => {
+                const r = resources.find((x) => x.resource_id === selected);
+                if (r) investigate(r, { force: true });
+              }}
               onForcePlan={() => {
                 const r = resources.find((x) => x.resource_id === selected);
-                if (r) investigate(r, true);
+                if (r) investigate(r, { forcePlan: true });
               }}
             />
           )}
 
-          {view === "history" && <HistoryView runs={runs} totals={historyTotals} />}
+          {view === "history" && (
+            <HistoryView runs={runs} totals={historyTotals} stats={eventStats} />
+          )}
           {view === "activity" && <ActivityView events={events} />}
         </div>
       </div>

@@ -105,6 +105,13 @@ export type Run = {
   verified: boolean | null;
 };
 
+export type EventStats = {
+  by_node: Record<string, Record<string, number>>;
+  assessments: number;
+  llm_fallbacks: number;
+  llm_success_rate: number | null;
+};
+
 export type HistoryTotals = {
   runs: number;
   approved: number;
@@ -154,7 +161,11 @@ export const api = {
     }),
   sweep: () => req<SweepResult>("/sweep", { method: "POST" }),
   history: (limit = 50) =>
-    req<{ runs: Run[]; totals: HistoryTotals }>(`/history?limit=${limit}`),
+    req<{ runs: Run[]; totals: HistoryTotals; stats: EventStats }>(
+      `/history?limit=${limit}`
+    ),
+  runEvents: (runId: string) =>
+    req<{ run_id: string; events: ReasoningEvent[] }>(`/runs/${runId}/events`),
   approve: (thread_id: string, command: string) =>
     req<ApprovalResult>("/approve", {
       method: "POST",

@@ -1,7 +1,17 @@
 "use client";
 
-import { money, type HistoryTotals, type Run } from "@/lib/api";
+import { useState } from "react";
+
+import {
+  api, money,
+  type EventStats, type HistoryTotals, type ReasoningEvent, type Run,
+} from "@/lib/api";
 import { Empty, Tag, type Tone } from "../primitives";
+
+const EVENT_TONE: Record<string, Tone> = {
+  finding: "warn", decision: "info", action: "danger", error: "danger",
+  skip: "muted", check: "muted", handoff: "muted",
+};
 
 const VERDICT_TONE: Record<string, Tone> = {
   keep: "ok", investigate_more: "warn", stop: "warn", retire: "danger",
@@ -25,13 +35,20 @@ function outcome(r: Run) {
   return { text: "not approved", tone: "var(--fg-faint)" };
 }
 
-function Summary({ totals }: { totals: HistoryTotals }) {
+function Summary({ totals, stats }: { totals: HistoryTotals; stats: EventStats | null }) {
+  const rate = stats?.llm_success_rate;
   const cards = [
     { label: "Runs", value: String(totals.runs) },
     { label: "Approved", value: String(totals.approved) },
     { label: "Kept", value: String(totals.kept) },
     { label: "Realised", value: money(totals.realised_monthly), tone: "var(--ok)", sub: "per month" },
     { label: "Simulated", value: money(totals.simulated_monthly), tone: "var(--fg-faint)", sub: "dry run only" },
+    ...(rate === null || rate === undefined ? [] : [{
+      label: "Model used",
+      value: `${Math.round(rate * 100)}%`,
+      tone: rate < 0.9 ? "var(--warn)" : "var(--ok)",
+      sub: `${stats!.llm_fallbacks} of ${stats!.assessments} fell back to rules`,
+    }]),
   ];
 
   return (
@@ -59,14 +76,35 @@ function Summary({ totals }: { totals: HistoryTotals }) {
   );
 }
 
-export function HistoryView({ runs, totals }: { runs: Run[]; totals: HistoryTotals | null }) {
+export function HistoryView({
+  runs, totals, stats,
+}: { runs: Run[]; totals: HistoryTotals | null; stats: EventStats | null }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const [trail, setTrail] = useState<Record<string, ReasoningEvent[]>>({});
+  const [loading, setLoading] = useState<string | null>(null);
+
+  async function toggle(runId: string) {
+    if (open === runId) { setOpen(null); return; }
+    setOpen(runId);
+    if (trail[runId]) return;
+    setLoading(runId);
+    try {
+      const r = await api.runEvents(runId);
+      setTrail((t) => ({ ...t, [runId]: r.events }));
+    } catch {
+      setTrail((t) => ({ ...t, [runId]: [] }));
+    } finally {
+      setLoading(null);
+    }
+  }
+
   if (!runs.length) {
     return <Empty>No runs recorded yet. Investigate a resource and its outcome lands here.</Empty>;
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {totals && <Summary totals={totals} />}
+      {totals && <Summary totals={totals} stats={stats} />}
 
       {totals && totals.realised_monthly === 0 && totals.simulated_monthly > 0 && (
         <p
@@ -85,11 +123,11 @@ export function HistoryView({ runs, totals }: { runs: Run[]; totals: HistoryTota
         <table className="w-full border-collapse text-[12.5px]">
           <thead className="sticky top-0 z-10">
             <tr style={{ background: "var(--surface-2)" }}>
-              {["When", "Resource", "Verdict", "Outcome", "$/mo"].map((h, i) => (
+              {["", "When", "Resource", "Verdict", "Outcome", "$/mo"].map((h, i) => (
                 <th
                   key={h}
                   scope="col"
-                  className={`label px-4 py-2 ${i === 4 ? "text-right" : "text-left"}`}
+                  className={`label px-4 py-2 ${i === 5 ? "text-right" : "text-left"}`}
                   style={{ borderBottom: "1px solid var(--border)" }}
                 >
                   {h}
@@ -100,12 +138,36 @@ export function HistoryView({ runs, totals }: { runs: Run[]; totals: HistoryTota
           <tbody>
             {runs.map((r, i) => {
               const o = outcome(r);
+              const expanded = open === r.run_id;
+              const events = trail[r.run_id];
+
               return (
+                <>
                 <tr
                   key={r.run_id}
-                  className="rise"
-                  style={{ ["--i" as string]: i, borderBottom: "1px solid var(--border)" }}
+                  onClick={() => toggle(r.run_id)}
+                  tabIndex={0}
+                  role="button"
+                  aria-expanded={expanded}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(r.run_id); }
+                  }}
+                  className="rise cursor-pointer transition-colors duration-150"
+                  style={{
+                    ["--i" as string]: i,
+                    borderBottom: "1px solid var(--border)",
+                    background: expanded ? "var(--surface-2)" : "transparent",
+                  }}
                 >
+                  <td className="px-4 py-2" style={{ color: "var(--fg-faint)", width: 24 }}>
+                    <span
+                      aria-hidden="true"
+                      className="inline-block transition-transform duration-150"
+                      style={{ transform: expanded ? "rotate(90deg)" : "none" }}
+                    >
+                      ›
+                    </span>
+                  </td>
                   <td className="num whitespace-nowrap px-4 py-2" style={{ color: "var(--fg-faint)" }}>
                     {when(r.at)}
                     {r.dry_run && (
@@ -128,6 +190,41 @@ export function HistoryView({ runs, totals }: { runs: Run[]; totals: HistoryTota
                     {r.monthly_saving ? money(r.monthly_saving) : "—"}
                   </td>
                 </tr>
+
+                {expanded && (
+                  <tr key={`${r.run_id}-trail`} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <td colSpan={6} style={{ background: "var(--bg)" }}>
+                      {loading === r.run_id ? (
+                        <p className="px-12 py-3 text-[12.5px] pulse" style={{ color: "var(--fg-faint)" }}>
+                          Loading the reasoning…
+                        </p>
+                      ) : !events?.length ? (
+                        <p className="px-12 py-3 text-[12.5px]" style={{ color: "var(--fg-faint)" }}>
+                          No reasoning was recorded for this run.
+                        </p>
+                      ) : (
+                        <ol className="px-12 py-2">
+                          {events.map((e, j) => (
+                            <li key={j} className="flex items-baseline gap-3 py-[3px]">
+                              <span className="mono w-[86px] shrink-0 text-[11.5px]"
+                                    style={{ color: "var(--fg-muted)" }}>
+                                {e.node}
+                              </span>
+                              <span className="w-[72px] shrink-0">
+                                <Tag tone={EVENT_TONE[e.event] ?? "muted"}>{e.event}</Tag>
+                              </span>
+                              <span className="min-w-0 flex-1 text-[12.5px] leading-snug"
+                                    style={{ color: "var(--fg)", overflowWrap: "anywhere" }}>
+                                {e.message}
+                              </span>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </td>
+                  </tr>
+                )}
+                </>
               );
             })}
           </tbody>

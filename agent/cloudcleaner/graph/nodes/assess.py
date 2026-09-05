@@ -111,7 +111,15 @@ def assess_node(state: CloudCleanerState):
     )
 
     try:
-        rec = _model().with_structured_output(Recommendation).invoke(prompt)
+        # json_schema, not the default tool-calling path: Groq's tool calling on
+        # gpt-oss-20b fails on prompts this long, emitting a tool type of
+        # "functions.Recommendation" or refusing tool choice outright. Measured
+        # at 0/4 with tool calling and 4/4 with json_schema on the same inputs.
+        rec = (
+            _model()
+            .with_structured_output(Recommendation, method="json_schema")
+            .invoke(prompt)
+        )
     except Exception as e:
         log.emit("assess", "error", resource.resource_id, f"llm failed: {e}; falling back to rules")
         rec = rules_only_verdict(resource, aws)
