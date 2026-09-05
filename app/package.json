@@ -1,17 +1,16 @@
 {
-  "name": "langgraph-python-starter",
+  "name": "cloudcleaner-ui",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npm run dev:infra && concurrently \"npm run dev:ui\" \"npm run dev:agent\" --names ui,agent --prefix-colors blue,green --kill-others",
+    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:agent\" --names ui,agent --prefix-colors blue,green --kill-others",
     "dev:debug": "LOG_LEVEL=debug npm run dev",
     "dev:agent": "cd ../agent && uv run main.py",
     "dev:ui": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "install:agent": "cd ../agent && uv sync",
-    "postinstall": "npm run install:agent",
-    "dev:infra": "node scripts/copilotkit-dev-infra.mjs"
+    "postinstall": "npm run install:agent"
   },
   "dependencies": {
     "@copilotkit/a2ui-renderer": "1.70.0",
