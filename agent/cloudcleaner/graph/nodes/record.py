@@ -5,16 +5,23 @@ from cloudcleaner.storage.repository import record_run
 
 
 def record_node(state: CloudCleanerState):
+    resource = state["resource"]
+    actions = state.get("action_results") or []
+    plan = state.get("plan")
+
+    # Emitted before the run is written, so this event is flushed with the run
+    # it describes rather than landing in the next one's buffer.
+    log.emit("record", "decision", resource.resource_id,
+             f"recording run: {len([a for a in actions if a.get('ok')])} actions, "
+             f"${plan.total_monthly_saving if plan else 0.0}/mo")
+
     run = record_run(
-        resource=state["resource"],
+        resource=resource,
         recommendation=state.get("recommendation"),
-        plan=state.get("plan"),
+        plan=plan,
         approval=state.get("approval"),
-        action_results=state.get("action_results"),
+        action_results=actions,
         verification_passed=state.get("verification_passed"),
         dry_run=DRY_RUN,
     )
-    log.emit("record", "decision", run["resource_id"],
-             f"run {run['run_id'][:8]} saved: {run['executed']} actions, "
-             f"${run['monthly_saving']}/mo")
     return {"run_id": run["run_id"]}

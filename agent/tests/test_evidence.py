@@ -1,7 +1,14 @@
 import json
 
 from cloudcleaner.storage.repository import (
-    list_runs, recall, record_run, restore_recipe, runs_for, totals,
+    event_stats,
+    events_for,
+    list_runs,
+    recall,
+    record_run,
+    restore_recipe,
+    runs_for,
+    totals,
 )
 from cloudcleaner.schemas import (
     ApprovalDecision, CloudResource, Recommendation, RestoreRecipe,
@@ -147,3 +154,60 @@ def test_runs_for_a_resource_are_newest_first(tmp_path):
     b = record_run(_resource(), path=path)
     ids = [r["run_id"] for r in runs_for("i-1", path=path)]
     assert ids[0] == b["run_id"] and ids[1] == a["run_id"]
+
+
+# --- reasoning trail ---------------------------------------------------------
+
+def test_events_are_stored_against_the_run_that_produced_them(tmp_path):
+    from cloudcleaner.evidence.collector import log
+
+    path = tmp_path / "cc.db"
+    log.path = tmp_path / "reasoning.jsonl"
+    log.start()
+    log.emit("detect", "finding", "i-1", "found it", cost=4.93)
+    log.emit("assess", "decision", "i-1", "retire", severity="high")
+
+    run = record_run(_resource(), path=path)
+    assert run["events"] == 2
+
+    events = events_for(run["run_id"], path=path)
+    assert [e["node"] for e in events] == ["detect", "assess"]
+    assert events[0]["cost"] == 4.93          # extras are unpacked back out
+    assert events[1]["severity"] == "high"
+
+
+def test_a_run_never_sees_another_run_s_events(tmp_path):
+    from cloudcleaner.evidence.collector import log
+
+    path = tmp_path / "cc.db"
+    log.path = tmp_path / "reasoning.jsonl"
+
+    log.start()
+    log.emit("assess", "decision", "i-1", "first run")
+    first = record_run(_resource(), path=path)
+
+    log.start()
+    log.emit("assess", "decision", "i-2", "second run")
+    second = record_run(_resource(), path=path)
+
+    assert [e["message"] for e in events_for(first["run_id"], path=path)] == ["first run"]
+    assert [e["message"] for e in events_for(second["run_id"], path=path)] == ["second run"]
+
+
+def test_llm_fallback_rate_is_measurable(tmp_path):
+    from cloudcleaner.evidence.collector import log
+
+    path = tmp_path / "cc.db"
+    log.path = tmp_path / "reasoning.jsonl"
+
+    for i in range(4):
+        log.start()
+        if i < 1:
+            log.emit("assess", "error", "i-1", "llm failed; falling back to rules")
+        log.emit("assess", "decision", "i-1", "retire")
+        record_run(_resource(), path=path)
+
+    stats = event_stats(path=path)
+    assert stats["assessments"] == 4
+    assert stats["llm_fallbacks"] == 1
+    assert stats["llm_success_rate"] == 0.75

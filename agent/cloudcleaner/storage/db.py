@@ -55,6 +55,21 @@ CREATE TABLE IF NOT EXISTS decisions (
     evidence          TEXT DEFAULT '{}'
 );
 
+-- One row per logged decision. run_id is filled in when the run is recorded,
+-- since the id does not exist until the graph reaches its terminal node.
+CREATE TABLE IF NOT EXISTS events (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id            TEXT,
+    at                TEXT NOT NULL,
+    node              TEXT NOT NULL,
+    event             TEXT NOT NULL,
+    resource_id       TEXT,
+    message           TEXT,
+    extra             TEXT DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_events_run ON events(run_id);
+CREATE INDEX IF NOT EXISTS idx_events_at ON events(at DESC);
+
 CREATE TABLE IF NOT EXISTS snapshots (
     run_id            TEXT PRIMARY KEY,
     resource_id       TEXT NOT NULL,

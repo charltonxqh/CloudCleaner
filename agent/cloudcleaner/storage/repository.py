@@ -9,6 +9,7 @@ import json
 import uuid
 from pathlib import Path
 
+from cloudcleaner.evidence.collector import log
 from cloudcleaner.storage.db import connect, now, rows_to_dicts
 
 RUN_JSON_FIELDS = ("blocked", "actions")
@@ -62,6 +63,7 @@ def record_run(
             {**run, "blocked": json.dumps(run["blocked"]), "actions": json.dumps(actions)},
         )
         _remember(conn, run)
+        run["events"] = log.flush(run["run_id"], conn)
 
         if plan and plan.restore and run["executed"]:
             conn.execute(
@@ -117,6 +119,45 @@ def recall_many(resource_ids: list[str], path: Path | None = None) -> dict[str, 
             f"SELECT * FROM decisions WHERE resource_id IN ({placeholders})", resource_ids
         ).fetchall()
     return {r["resource_id"]: dict(r) for r in rows}
+
+
+def events_for(run_id: str, path: Path | None = None) -> list[dict]:
+    """The reasoning that produced one run, oldest first."""
+    with connect(path) as conn:
+        rows = conn.execute(
+            "SELECT * FROM events WHERE run_id = ? ORDER BY id", (run_id,)
+        ).fetchall()
+
+    out = []
+    for r in rows_to_dicts(rows, ("extra",)):
+        extra = r.pop("extra", {}) or {}
+        out.append({**r, **extra})
+    return out
+
+
+def event_stats(path: Path | None = None) -> dict:
+    """Counts the deck needs: how often each node errors, skips or decides."""
+    with connect(path) as conn:
+        rows = conn.execute(
+            "SELECT node, event, COUNT(*) AS n FROM events GROUP BY node, event"
+        ).fetchall()
+        fallbacks = conn.execute(
+            "SELECT COUNT(*) FROM events WHERE node = 'assess' AND event = 'error'"
+        ).fetchone()[0]
+        assessments = conn.execute(
+            "SELECT COUNT(*) FROM events WHERE node = 'assess' AND event = 'decision'"
+        ).fetchone()[0]
+
+    by_node: dict[str, dict[str, int]] = {}
+    for r in rows:
+        by_node.setdefault(r["node"], {})[r["event"]] = r["n"]
+
+    return {
+        "by_node": by_node,
+        "assessments": assessments,
+        "llm_fallbacks": fallbacks,
+        "llm_success_rate": round(1 - fallbacks / assessments, 3) if assessments else None,
+    }
 
 
 def list_runs(limit: int = 100, path: Path | None = None) -> list[dict]:

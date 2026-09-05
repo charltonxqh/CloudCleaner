@@ -28,6 +28,9 @@ def _waste_score(r):
 
 def detect_node(state: CloudCleanerState):
     if state.get("resource") is not None:
+        # Seeded by the API with a cached scan: still a new run, so the trail
+        # starts clean rather than inheriting the previous request's events.
+        log.start()
         return {}
 
     log.start()

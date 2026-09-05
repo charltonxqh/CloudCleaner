@@ -19,7 +19,13 @@ from pydantic import BaseModel
 from cloudcleaner.evidence.collector import log
 from cloudcleaner.graph.graph import graph
 from cloudcleaner.graph.nodes.detect import detect_node
-from cloudcleaner.storage.repository import list_runs, totals
+from cloudcleaner.storage.repository import (
+    event_stats,
+    events_for,
+    list_runs,
+    runs_for,
+    totals,
+)
 
 app = FastAPI()
 
@@ -99,7 +105,18 @@ async def investigate(req: InvestigateRequest):
 
 @app.get("/history")
 async def history(limit: int = 50):
-    return {"runs": list_runs(limit), "totals": totals()}
+    return {"runs": list_runs(limit), "totals": totals(), "stats": event_stats()}
+
+
+@app.get("/runs/{run_id}/events")
+async def run_events(run_id: str):
+    """The reasoning that produced one recorded run."""
+    return {"run_id": run_id, "events": events_for(run_id)}
+
+
+@app.get("/resources/{resource_id}/runs")
+async def resource_runs(resource_id: str, limit: int = 20):
+    return {"resource_id": resource_id, "runs": runs_for(resource_id, limit)}
 
 
 @app.post("/sweep")
@@ -121,9 +138,10 @@ async def sweep():
         # A sweep assesses, it never approves. Close the thread so the run is
         # recorded as "not approved" instead of dangling at the interrupt.
         if result.get("__interrupt__"):
-            graph.invoke(Command(resume=""), config)
+            result = graph.invoke(Command(resume=""), config)
 
         rows.append({
+            "run_id": result.get("run_id"),
             "resource_id": resource.resource_id,
             "action": rec.action if rec else None,
             "severity": rec.severity if rec else None,
@@ -134,11 +152,13 @@ async def sweep():
             "monthly_saving": round(saving, 2),
         })
 
+    trail = [e for row in rows if row["run_id"] for e in events_for(row["run_id"])]
+
     return {
         "results": rows,
         "recoverable_monthly": round(recoverable, 2),
         "recoverable_yearly": round(recoverable * 12, 2),
-        "reasoning": log.events,
+        "reasoning": trail,
     }
 
 
@@ -147,12 +167,17 @@ async def approve(req: ApproveRequest):
     config = {"configurable": {"thread_id": req.thread_id}}
     result = graph.invoke(Command(resume=req.command), config)
     approval = result.get("approval")
+    run_id = result.get("run_id")
+
     return {
         "decision": approval.decision if approval else "keep",
         "reason": approval.reason if approval else None,
         "action_results": result.get("action_results") or [],
         "verification_passed": result.get("verification_passed"),
-        "reasoning": log.events,
+        "run_id": run_id,
+        # The run has been recorded by now, so its trail lives in the database
+        # rather than the in-memory buffer.
+        "reasoning": events_for(run_id) if run_id else [],
     }
 
 
