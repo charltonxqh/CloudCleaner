@@ -5,6 +5,8 @@ approval) and graph/nodes/execute.py (defense-in-depth re-check right
 before acting), so both stay consistent.
 """
 
+from datetime import datetime, timezone
+
 from cloudcleaner.schemas import AWSEvidence, CloudResource, GitHubEvidence, ResourceContext
 
 # CPU below this threshold (as a %) counts as "no recent activity" when
@@ -21,6 +23,16 @@ def _github_pr_open(github_evidence: GitHubEvidence | None) -> bool | None:
     if not github_evidence.branch_exists:
         return False
     return github_evidence.pr_status not in _CLOSED_PR_STATUSES
+
+
+def _age_days(launch_time: str | None) -> float | None:
+    if not launch_time:
+        return None
+    try:
+        launched = datetime.fromisoformat(launch_time.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return max((datetime.now(timezone.utc) - launched).total_seconds() / 86400, 0.0)
 
 
 def build_resource_context(
@@ -48,6 +60,8 @@ def build_resource_context(
         tags=tags,
         state=resource.state or "unknown",
         estimated_monthly_cost_usd=cost,
+        age_days=_age_days(resource.launch_time),
+        last_state_change=resource.last_state_change,
         recent_activity=recent_activity,
         github_pr_open=_github_pr_open(github_evidence),
     )

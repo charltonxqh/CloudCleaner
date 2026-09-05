@@ -12,10 +12,10 @@ Judge the evidence below and return one verdict:
 - retire           idle with no sign of use, and it is costing money
 - investigate_more ONLY when the evidence genuinely contradicts itself or is absent
 
-You are not the last line of defence. Nothing you recommend is executed: a human reviews the
-full ordered plan and types the resource ID to approve it, and every volume is snapshotted
-first. So do not hedge to be safe. "investigate_more" on clear-cut waste is a wrong answer,
-not a cautious one.
+You are not the last line of defence. Nothing you recommend is executed blindly: stop actions
+pass through deterministic policy checks, and retirement actions are expanded into an ordered
+teardown plan before approval and execution. So do not hedge to be safe. "investigate_more"
+on clear-cut waste is a wrong answer, not a cautious one.
 
 Facts that matter:
 - A stopped instance is NOT free. Attached EBS volumes and public IPv4 addresses keep billing.
@@ -86,17 +86,17 @@ def assess_node(state: CloudCleanerState):
     github = state["github_evidence"]
 
     severity = classify_severity(resource, aws)
-    saving = resource.estimated_monthly_cost or 0.0
-
     if not AI_ENABLED:
-        rec = rules_only_verdict(resource, aws)
+        rec = rules_only_verdict(resource, aws, github)
+        saving = (resource.monthly_saving_if_stopped or 0.0) if rec.action == "stop" else \
+            (resource.estimated_monthly_cost or 0.0) if rec.action == "retire" else 0.0
         rec.severity, rec.estimated_monthly_saving = severity, saving
         log.emit("assess", "decision", resource.resource_id, f"rules-only: {rec.action}")
         return {"recommendation": rec}
 
     from cloudcleaner.schemas import Recommendation
 
-    prior = rules_only_verdict(resource, aws)
+    prior = rules_only_verdict(resource, aws, github)
 
     memory = _memory_note(resource.resource_id)
     if memory:
@@ -122,8 +122,10 @@ def assess_node(state: CloudCleanerState):
         )
     except Exception as e:
         log.emit("assess", "error", resource.resource_id, f"llm failed: {e}; falling back to rules")
-        rec = rules_only_verdict(resource, aws)
+        rec = rules_only_verdict(resource, aws, github)
 
+    saving = (resource.monthly_saving_if_stopped or 0.0) if rec.action == "stop" else \
+        (resource.estimated_monthly_cost or 0.0) if rec.action == "retire" else 0.0
     rec.severity, rec.estimated_monthly_saving = severity, saving
     log.emit("assess", "decision", resource.resource_id,
              f"{rec.action} ({rec.confidence:.0%}) - {rec.reason}", severity=severity)

@@ -7,9 +7,9 @@ import pytest
 
 from cloudcleaner.fixtures import demo
 from cloudcleaner.graph.routing import (
-    after_assess,
-    after_detect,
-    after_plan,
+    route_after_assess,
+    route_after_detect,
+    route_after_plan,
     route_after_approval,
 )
 from cloudcleaner.schemas import ApprovalDecision, Recommendation, TeardownPlan, TeardownStep
@@ -20,23 +20,23 @@ def _rec(action):
 
 
 def test_empty_account_ends_cleanly_and_is_not_an_error():
-    assert after_detect({"done_reason": "nothing to investigate"}) == "end"
+    assert route_after_detect({"done_reason": "nothing to investigate"}) == "end"
 
 
 @pytest.mark.parametrize("action,expected", [
     ("keep", "record"), ("investigate_more", "record"), ("stop", "plan"), ("retire", "plan"),
 ])
 def test_only_actionable_verdicts_reach_the_planner(action, expected):
-    assert after_assess({"recommendation": _rec(action)}) == expected
+    assert route_after_assess({"recommendation": _rec(action)}) == expected
 
 
 def test_blocked_plan_never_reaches_approval():
     plan = TeardownPlan(root_resource_id="i-1", blocked=["Environment=prod is protected"])
-    assert after_plan({"plan": plan}) == "record"
+    assert route_after_plan({"plan": plan}) == "record"
 
 
 def test_empty_plan_never_reaches_approval():
-    assert after_plan({"plan": TeardownPlan(root_resource_id="i-1")}) == "record"
+    assert route_after_plan({"plan": TeardownPlan(root_resource_id="i-1")}) == "record"
 
 
 def test_unapproved_plan_never_executes():
@@ -142,8 +142,8 @@ def test_approval_interrupt_executes_on_exact_command():
 
 def test_every_terminal_path_is_recorded():
     """A resource that was looked at must leave a trace, whatever the outcome."""
-    from cloudcleaner.graph.routing import after_assess, after_plan, route_after_approval
+    from cloudcleaner.graph.routing import route_after_assess, route_after_plan, route_after_approval
 
-    assert after_assess({"recommendation": _rec("keep")}) == "record"
-    assert after_plan({"plan": TeardownPlan(root_resource_id="i-1", blocked=["x"])}) == "record"
+    assert route_after_assess({"recommendation": _rec("keep")}) == "record"
+    assert route_after_plan({"plan": TeardownPlan(root_resource_id="i-1", blocked=["x"])}) == "record"
     assert route_after_approval({"approval": ApprovalDecision(decision="keep")}) == "record"

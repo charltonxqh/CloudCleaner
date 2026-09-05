@@ -52,11 +52,12 @@ function Icon({ children }: { children: ReactNode }) {
 }
 
 export function Sidebar({
-  view, onNavigate, badges,
+  view, onNavigate, badges, potentialSavings,
 }: {
   view: ViewId;
   onNavigate: (v: ViewId) => void;
   badges?: Partial<Record<ViewId, string | number>>;
+  potentialSavings?: { monthly: number; yearly: number } | null;
 }) {
   return (
     <nav
@@ -83,6 +84,25 @@ export function Sidebar({
           </div>
         </div>
       </div>
+
+      {potentialSavings && (
+        <div
+          className="mb-2 hidden px-2.5 py-3 lg:block"
+          style={{
+            background: "var(--ok-dim)",
+            border: "1px solid var(--ok)",
+            borderRadius: "var(--radius)",
+          }}
+        >
+          <div className="label" style={{ color: "var(--ok)" }}>Potential savings</div>
+          <div className="num mt-1 text-[22px] font-semibold leading-none" style={{ color: "var(--ok)" }}>
+            ${potentialSavings.monthly.toFixed(2)}
+          </div>
+          <div className="mt-1 text-[10px]" style={{ color: "var(--fg-faint)" }}>
+            per month · ${potentialSavings.yearly.toFixed(2)}/yr
+          </div>
+        </div>
+      )}
 
       {NAV.map((item) => {
         const active = view === item.id;

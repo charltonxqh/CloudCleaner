@@ -28,19 +28,38 @@ from cloudcleaner.evidence.collector import log
 def _execute_pending_action(state: CloudCleanerState) -> dict:
     resource = state["resource"]
     recommendation = state["recommendation"]
-    approval = state["approval"]
+    approval = state.get("approval")
+    earlier_gate = state.get("policy_result")
 
     if recommendation.action != "stop":
         return {"execution_results": [], "verification_results": []}
 
     ctx = build_resource_context(resource, state.get("aws_evidence"), state.get("github_evidence"))
     action = propose_stop_instance(resource.resource_id, resource.region, reason=recommendation.reason)
+    approved = (
+        approval is not None
+        and approval.decision == "approve"
+        and resource.resource_id in approval.approved_resource_ids
+    )
 
-    if approval.decision != "approve":
+    if earlier_gate is not None and earlier_gate.decision == PolicyDecision.BLOCK:
         result = ExecutionResult(
             action_id=action.id,
             status=ExecutionStatus.BLOCKED,
-            error=f"human approval decision was '{approval.decision}', not 'approve'",
+            error="; ".join(v.message for v in earlier_gate.violations) or "blocked by policy",
+        )
+        METRICS.record("blocked_at_policy_check")
+        return {"pending_action": action, "resource_context": ctx, "execution_results": [result]}
+
+    if (
+        earlier_gate is not None
+        and earlier_gate.decision == PolicyDecision.NEEDS_APPROVAL
+        and not approved
+    ):
+        result = ExecutionResult(
+            action_id=action.id,
+            status=ExecutionStatus.BLOCKED,
+            error="human approval is required before execution",
         )
         METRICS.record("blocked_no_approval")
         return {"pending_action": action, "resource_context": ctx, "execution_results": [result]}
@@ -52,6 +71,13 @@ def _execute_pending_action(state: CloudCleanerState) -> dict:
             action_id=action.id,
             status=ExecutionStatus.BLOCKED,
             error="; ".join(v.message for v in gate.violations),
+        )
+    elif gate.decision == PolicyDecision.NEEDS_APPROVAL and not approved:
+        METRICS.record("blocked_no_approval")
+        result = ExecutionResult(
+            action_id=action.id,
+            status=ExecutionStatus.BLOCKED,
+            error="policy now requires human approval before execution",
         )
     else:
         result = execute_action(action)

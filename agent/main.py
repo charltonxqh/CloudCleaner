@@ -10,7 +10,7 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 import uvicorn
 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 from copilotkit import LangGraphAGUIAgent
-from fastapi import FastAPI
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from langgraph.types import Command
@@ -26,6 +26,8 @@ from cloudcleaner.storage.repository import (
     runs_for,
     totals,
 )
+from cloudcleaner.tools.slack.approvals import parse_interaction, verify_slack_signature
+from cloudcleaner.tools.slack.messages import send_approval_request, update_approval_message
 
 app = FastAPI()
 
@@ -44,6 +46,33 @@ def _scan(refresh: bool = False):
     if refresh or "latest" not in _scans:
         _scans["latest"] = detect_node({})
     return _scans["latest"]
+
+
+def _resume_slack_approval(interaction: dict):
+    config = {"configurable": {"thread_id": interaction["thread_id"]}}
+    resume = {
+        "decision": interaction["decision"],
+        "command": f"APPROVE {interaction['resource_id']}" if interaction["decision"] == "approve" else "",
+        "approved_by": interaction["approved_by"],
+    }
+
+    try:
+        result = graph.invoke(Command(resume=resume), config)
+        approval = result.get("approval")
+        decision = approval.decision if approval else "keep"
+        status = "approved" if decision == "approve" else "rejected"
+        text = (
+            f"*CloudCleaner {status}* for `{interaction['resource_id']}` "
+            f"by <@{interaction['approved_by'].split(':', 1)[-1]}>."
+        )
+    except Exception as e:
+        text = f"*CloudCleaner approval failed* for `{interaction['resource_id']}`: {e}"
+
+    if interaction.get("channel_id") and interaction.get("message_ts"):
+        try:
+            update_approval_message(interaction["channel_id"], interaction["message_ts"], text)
+        except Exception:
+            pass
 
 
 @app.get("/health")
@@ -90,6 +119,12 @@ async def investigate(req: InvestigateRequest):
     plan = result.get("plan")
     pending = result.get("__interrupt__")
 
+    if pending:
+        try:
+            send_approval_request(thread_id, pending[0].value)
+        except Exception as e:
+            log.emit("approval", "error", resource.resource_id, f"Slack approval message failed: {e}")
+
     return {
         "thread_id": thread_id,
         "resource": resource.model_dump(),
@@ -132,7 +167,12 @@ async def sweep():
 
         rec = result.get("recommendation")
         plan = result.get("plan")
-        saving = sum(s.monthly_saving for s in plan.steps) if plan and plan.steps else 0.0
+        if rec and rec.action == "stop":
+            saving = resource.monthly_saving_if_stopped or 0.0
+        elif rec and rec.action == "retire" and plan and plan.steps and not plan.blocked:
+            saving = sum(s.monthly_saving for s in plan.steps)
+        else:
+            saving = 0.0
         recoverable += saving
 
         # A sweep assesses, it never approves. Close the thread so the run is
@@ -179,6 +219,21 @@ async def approve(req: ApproveRequest):
         # rather than the in-memory buffer.
         "reasoning": events_for(run_id) if run_id else [],
     }
+
+
+@app.post("/slack/interactions")
+async def slack_interactions(request: Request, background_tasks: BackgroundTasks):
+    raw_body = await request.body()
+    if not verify_slack_signature(request.headers, raw_body):
+        raise HTTPException(status_code=401, detail="invalid Slack signature")
+
+    try:
+        interaction = parse_interaction(raw_body)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    background_tasks.add_task(_resume_slack_approval, interaction)
+    return {"ok": True}
 
 
 add_langgraph_fastapi_endpoint(

@@ -1,4 +1,7 @@
-"""On-demand us-east-1 list prices. Verify against the AWS pricing page before citing."""
+"""On-demand us-east-1 list prices with AWS Price List API lookup and local fallbacks."""
+
+from cloudcleaner.config import AWS_REGION
+from cloudcleaner.tools.aws.pricing import get_ebs_gb_month_price, get_ec2_hourly_price
 
 HOURS_PER_MONTH = 730
 
@@ -30,14 +33,18 @@ PUBLIC_IPV4_HOURLY = 0.005
 
 
 def ec2_compute_cost(instance_type: str | None) -> float:
-    hourly = EC2_HOURLY.get(instance_type or "", EC2_HOURLY_DEFAULT)
+    hourly = get_ec2_hourly_price(instance_type or "", AWS_REGION)
+    if hourly is None:
+        hourly = EC2_HOURLY.get(instance_type or "", EC2_HOURLY_DEFAULT)
     return round(hourly * HOURS_PER_MONTH, 2)
 
 
 def ebs_cost(size_gb: int | None, volume_type: str | None = None) -> float:
     if not size_gb:
         return 0.0
-    rate = EBS_GB_MONTH.get(volume_type or "", EBS_GB_MONTH_DEFAULT)
+    rate = get_ebs_gb_month_price(volume_type or "", AWS_REGION)
+    if rate is None:
+        rate = EBS_GB_MONTH.get(volume_type or "", EBS_GB_MONTH_DEFAULT)
     return round(size_gb * rate, 2)
 
 
@@ -67,3 +74,25 @@ def instance_cost(
 
     residual = round(storage + address, 2)
     return residual, residual > 0
+
+
+def instance_cost_if_stopped(
+    attached_volumes_gb: int = 0,
+    has_public_ip: bool = False,
+) -> float:
+    storage = ebs_cost(attached_volumes_gb)
+    address = public_ipv4_cost() if has_public_ip else 0.0
+    return round(storage + address, 2)
+
+
+def instance_monthly_saving_if_stopped(
+    state: str | None,
+    instance_type: str | None,
+    attached_volumes_gb: int = 0,
+    has_public_ip: bool = False,
+) -> float:
+    if state != "running":
+        return 0.0
+    current, _ = instance_cost(state, instance_type, attached_volumes_gb, has_public_ip)
+    stopped = instance_cost_if_stopped(attached_volumes_gb, has_public_ip)
+    return round(max(current - stopped, 0.0), 2)

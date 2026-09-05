@@ -1,5 +1,7 @@
 """Deterministic risk/impact scoring. Pure functions, no AWS calls, no LLM."""
 
+from datetime import datetime, timezone
+
 from cloudcleaner.schemas import Action, ActionType, ResourceContext, RiskAssessment, RiskLevel
 
 
@@ -80,11 +82,34 @@ def assess_risk(action: Action, ctx: ResourceContext) -> RiskAssessment:
 # the *resource* for display and for the rules-only fallback when the LLM is off,
 # so it takes evidence rather than an Action.
 
-from cloudcleaner.schemas import AWSEvidence, CloudResource, Recommendation  # noqa: E402
+from cloudcleaner.schemas import AWSEvidence, CloudResource, GitHubEvidence, Recommendation  # noqa: E402
 
 IDLE_DAYS_HIGH = 30
 IDLE_DAYS_MEDIUM = 14
 CPU_IDLE_PERCENT = 2.0
+
+
+def _within_days(value: str | None, days: int) -> bool:
+    if not value:
+        return False
+    try:
+        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return (datetime.now(timezone.utc) - timestamp).total_seconds() <= days * 86400
+
+
+def _active_github_reason(github: GitHubEvidence | None) -> str | None:
+    if github is None:
+        return None
+
+    if github.branch_exists is True and github.pr_status not in {"merged", "closed"}:
+        return "related GitHub branch/PR is still active"
+    if github.scheduled_workflow_exists is True:
+        return "repository has a scheduled GitHub Actions workflow"
+    if _within_days(github.last_workflow_run_at, IDLE_DAYS_MEDIUM):
+        return f"GitHub Actions ran within the last {IDLE_DAYS_MEDIUM} days"
+    return None
 
 
 def classify_severity(resource: CloudResource, aws: AWSEvidence) -> str:
@@ -102,7 +127,11 @@ def classify_severity(resource: CloudResource, aws: AWSEvidence) -> str:
     return "low"
 
 
-def rules_only_verdict(resource: CloudResource, aws: AWSEvidence) -> Recommendation:
+def rules_only_verdict(
+    resource: CloudResource,
+    aws: AWSEvidence,
+    github: GitHubEvidence | None = None,
+) -> Recommendation:
     if resource.resource_type == "ebs" and resource.attached_to is None:
         return Recommendation(
             action="retire",
@@ -124,6 +153,14 @@ def rules_only_verdict(resource: CloudResource, aws: AWSEvidence) -> Recommendat
             confidence=0.5,
         )
 
+    github_reason = _active_github_reason(github)
+    if github_reason:
+        return Recommendation(
+            action="keep",
+            reason=f"GitHub/CI/CD evidence shows ongoing use: {github_reason}.",
+            confidence=0.85,
+        )
+
     idle = aws.idle_days
     cpu = aws.avg_cpu_percent
 
@@ -135,6 +172,15 @@ def rules_only_verdict(resource: CloudResource, aws: AWSEvidence) -> Recommendat
         )
 
     if (idle or 0) >= IDLE_DAYS_HIGH and (cpu is None or cpu < CPU_IDLE_PERCENT):
+        if github is not None and _within_days(github.latest_commit_at, IDLE_DAYS_MEDIUM):
+            return Recommendation(
+                action="stop",
+                reason=(
+                    f"Idle {idle} days with average CPU {cpu}%, but the linked repository "
+                    f"has a commit within the last {IDLE_DAYS_MEDIUM} days."
+                ),
+                confidence=0.65,
+            )
         return Recommendation(
             action="retire",
             reason=f"Idle {idle} days with average CPU {cpu}%.",

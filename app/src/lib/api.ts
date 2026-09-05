@@ -9,6 +9,8 @@ export type Resource = {
   size_gb: number | null;
   attached_to: string | null;
   estimated_monthly_cost: number | null;
+  monthly_cost_if_stopped: number | null;
+  monthly_saving_if_stopped: number | null;
   billing_while_stopped: boolean;
   tags: Record<string, string>;
 };
@@ -21,6 +23,8 @@ export type Evidence = {
   network_in_bytes: number | null;
   network_out_bytes: number | null;
   estimated_monthly_cost: number | null;
+  monthly_cost_if_stopped: number | null;
+  monthly_saving_if_stopped: number | null;
   billing_while_stopped: boolean;
 };
 

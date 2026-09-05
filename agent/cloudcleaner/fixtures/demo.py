@@ -1,6 +1,6 @@
 """Offline demo stack. Shapes match real describe_* responses so the graph cannot tell."""
 
-from cloudcleaner.schemas import CloudResource
+from cloudcleaner.schemas import CloudResource, GitHubEvidence
 
 INSTANCES = [
     CloudResource(

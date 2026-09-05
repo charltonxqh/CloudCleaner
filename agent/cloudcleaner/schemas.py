@@ -27,6 +27,7 @@ class CloudResource(BaseModel):
     
     instance_type: str | None = None
     launch_time: str | None = None
+    last_state_change: datetime | None = None
 
     project: str | None = None
     environment: str | None = None
@@ -40,6 +41,8 @@ class CloudResource(BaseModel):
 
     idle_days: int | None = None
     estimated_monthly_cost: float | None = None
+    monthly_cost_if_stopped: float | None = None
+    monthly_saving_if_stopped: float | None = None
     billing_while_stopped: bool = False
 
     tags: dict[str, str] = Field(default_factory=dict)

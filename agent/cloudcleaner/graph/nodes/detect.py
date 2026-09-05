@@ -1,6 +1,10 @@
 from cloudcleaner.evidence.collector import log
 from cloudcleaner.graph.state import CloudCleanerState
-from cloudcleaner.tools.aws.cost import instance_cost
+from cloudcleaner.tools.aws.cost import (
+    instance_cost,
+    instance_cost_if_stopped,
+    instance_monthly_saving_if_stopped,
+)
 from cloudcleaner.tools.provider import list_ec2_instances, list_elastic_ips, list_volumes
 
 
@@ -10,8 +14,14 @@ def _enrich(instance, volumes, eips):
     has_ip = bool(instance.public_ip) or any(e.attached_to == instance.resource_id for e in eips)
 
     cost, residual = instance_cost(instance.state, instance.instance_type, gb, has_ip)
+    cost_if_stopped = instance_cost_if_stopped(gb, has_ip)
+    saving_if_stopped = instance_monthly_saving_if_stopped(
+        instance.state, instance.instance_type, gb, has_ip
+    )
     instance.volume_ids = [v.resource_id for v in attached]
     instance.estimated_monthly_cost = cost
+    instance.monthly_cost_if_stopped = cost_if_stopped
+    instance.monthly_saving_if_stopped = saving_if_stopped
     instance.billing_while_stopped = residual
     return instance
 

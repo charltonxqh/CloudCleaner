@@ -1,3 +1,6 @@
+import re
+from datetime import datetime, timezone
+
 from cloudcleaner.schemas import CloudResource
 from cloudcleaner.tools.aws.client import get_ec2_client
 
@@ -10,6 +13,19 @@ def _tags_to_dict(tags: list[dict] | None) -> dict[str, str]:
         tag["Key"]: tag["Value"]
         for tag in tags
     }
+
+
+def _last_state_change(instance: dict) -> datetime | None:
+    state = instance["State"]["Name"]
+    if state in ("pending", "running"):
+        return instance.get("LaunchTime")
+
+    reason = instance.get("StateTransitionReason") or ""
+    match = re.search(r"\((\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) GMT\)", reason)
+    if not match:
+        return None
+
+    return datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
 
 
 def list_ec2_instances() -> list[CloudResource]:
@@ -35,6 +51,7 @@ def list_ec2_instances() -> list[CloudResource]:
                     state=instance["State"]["Name"],
                     instance_type=instance["InstanceType"],
                     launch_time=instance["LaunchTime"].isoformat(),
+                    last_state_change=_last_state_change(instance),
                     project=tags.get("Project"),
                     environment=tags.get("Environment"),
                     owner=tags.get("Owner"),

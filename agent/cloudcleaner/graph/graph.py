@@ -13,9 +13,9 @@ from cloudcleaner.graph.nodes.record import record_node
 from cloudcleaner.graph.nodes.rollback import rollback_node
 from cloudcleaner.graph.nodes.verify import verify_node
 from cloudcleaner.graph.routing import (
-    after_assess,
-    after_detect,
-    after_plan,
+    route_after_assess,
+    route_after_detect,
+    route_after_plan,
     route_after_approval,
     route_after_policy_check,
     route_after_verify,
@@ -70,14 +70,15 @@ def build_graph(checkpointer=None):
 
     builder.add_edge(START, "detect")
     builder.add_conditional_edges(
-        "detect", after_detect, {"investigate": "investigate", "end": END}
+        "detect", route_after_detect, {"investigate": "investigate", "end": END}
     )
     builder.add_edge("investigate", "assess")
     builder.add_conditional_edges(
-        "assess", after_assess, {"plan": "plan", "record": "record"}
+        "assess", route_after_assess,
+        {"plan": "plan", "policy_check": "policy_check", "record": "record"}
     )
     builder.add_conditional_edges(
-        "plan", after_plan, {"policy_check": "policy_check", "record": "record"}
+        "plan", route_after_plan, {"policy_check": "policy_check", "record": "record"}
     )
     builder.add_conditional_edges(
         "policy_check", route_after_policy_check,

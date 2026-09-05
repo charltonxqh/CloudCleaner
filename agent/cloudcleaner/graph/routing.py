@@ -6,8 +6,8 @@ Order of the two gates between ASSESS and EXECUTE:
                 (read-only; AWS refuses dependent deletes one blocker at a time)
   policy_check  decides WHETHER the proposed action is permitted (risk-scored)
 
-Planning first means the policy gate — and the human it may summon — sees the
-full ordered sequence rather than a bare "stop this instance".
+Retirements are planned first so the human sees the full ordered teardown. Stops
+go directly to policy_check because they are a single reversible action.
 """
 
 from cloudcleaner.graph.state import CloudCleanerState
@@ -16,21 +16,23 @@ from cloudcleaner.schemas import PolicyDecision
 ACTIONABLE = ("stop", "retire")
 
 
-def after_detect(state: CloudCleanerState) -> str:
+def route_after_detect(state: CloudCleanerState) -> str:
     return "end" if state.get("done_reason") else "investigate"
 
 
-def after_assess(state: CloudCleanerState) -> str:
+def route_after_assess(state: CloudCleanerState) -> str:
     if state.get("force_plan"):
         return "plan"
 
     rec = state.get("recommendation")
     if rec is None or rec.action not in ACTIONABLE:
         return "record"
+    if rec.action == "stop":
+        return "policy_check"
     return "plan"
 
 
-def after_plan(state: CloudCleanerState) -> str:
+def route_after_plan(state: CloudCleanerState) -> str:
     plan = state.get("plan")
     if plan is None or plan.blocked or not plan.steps:
         return "record"

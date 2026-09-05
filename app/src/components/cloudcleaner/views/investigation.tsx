@@ -146,13 +146,15 @@ function GithubEvidencePanel({ g }: { g: GitHubEvidence }) {
 }
 
 export function InvestigationView({
-  data, result, onApprove, onForcePlan, onReinvestigate, onBack, approving, busy, stale,
+  data, result, onApprove, onForcePlan, onReinvestigate, onBack,
+  approving, busy, stale, cachedAt,
 }: {
   data: Investigation | null;
   result: ApprovalResult | null;
   approving: boolean;
   busy: boolean;
   stale: boolean;
+  cachedAt: number | null;
   onApprove: (command: string) => void;
   onForcePlan: () => void;
   onReinvestigate: () => void;
@@ -183,6 +185,19 @@ export function InvestigationView({
   const matches = command === expected;
   const total = plan?.steps.reduce((s, x) => s + x.monthly_saving, 0) ?? 0;
   const irreversible = plan?.steps.filter((s) => !s.reversible).length ?? 0;
+  const recommendedSaving = rec?.action === "stop"
+    ? (r.monthly_saving_if_stopped ?? rec.estimated_monthly_saving)
+    : rec?.action === "retire"
+      ? (total || rec.estimated_monthly_saving)
+      : 0;
+  const costAfterAction = rec?.action === "stop"
+    ? r.monthly_cost_if_stopped
+    : rec?.action === "retire"
+      ? Math.max((r.estimated_monthly_cost ?? 0) - recommendedSaving, 0)
+      : null;
+  const cachedMinutes = cachedAt === null
+    ? null
+    : Math.max(0, Math.floor((Date.now() - cachedAt) / 60_000));
 
   return (
     <div className="flex min-h-0 flex-col">
@@ -221,6 +236,20 @@ export function InvestigationView({
         )}
       </div>
 
+      {(cachedAt !== null || stale) && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 px-4 py-2"
+          style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-2)" }}
+        >
+          <span className="text-[11px]" style={{ color: stale ? "var(--warn)" : "var(--fg-faint)" }}>
+            {stale
+              ? "Inventory changed since this investigation."
+              : `Cached investigation · ${cachedMinutes === 0 ? "less than a minute ago" : `${cachedMinutes}m ago`}`}
+          </span>
+          <Button onClick={onReinvestigate}>{stale ? "Re-investigate" : "Analyse again"}</Button>
+        </div>
+      )}
+
       <div
         className="grid lg:grid-cols-2"
         style={{ borderBottom: "1px solid var(--border)" }}
@@ -247,6 +276,27 @@ export function InvestigationView({
           <p className="mt-2 text-[12px] leading-relaxed" style={{ color: "var(--fg-muted)" }}>
             {rec.reason}
           </p>
+          {(rec.action === "stop" || rec.action === "retire") && (
+            <div
+              className="mt-3 grid gap-px sm:grid-cols-3"
+              style={{ background: "var(--border)", border: "1px solid var(--border)" }}
+            >
+              <div className="px-3 py-2" style={{ background: "var(--surface-2)" }}>
+                <div className="label">Current cost</div>
+                <div className="num mt-1 text-[15px] font-semibold">{money(r.estimated_monthly_cost)}</div>
+              </div>
+              <div className="px-3 py-2" style={{ background: "var(--surface-2)" }}>
+                <div className="label">{rec.action === "stop" ? "After stop" : "After retirement"}</div>
+                <div className="num mt-1 text-[15px] font-semibold">{money(costAfterAction)}</div>
+              </div>
+              <div className="px-3 py-2" style={{ background: "var(--surface-2)" }}>
+                <div className="label">Potential saving</div>
+                <div className="num mt-1 text-[15px] font-semibold" style={{ color: "var(--ok)" }}>
+                  {money(recommendedSaving)}/mo
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

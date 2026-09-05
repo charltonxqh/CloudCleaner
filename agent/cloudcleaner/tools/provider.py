@@ -52,29 +52,30 @@ def get_github_evidence(repo: str | None = None) -> GitHubEvidence:
         return fn(repo)
 
     from github import GithubException
-    
+    from requests.exceptions import RequestException
+
     from cloudcleaner.tools.github.client import get_github_client
     from cloudcleaner.tools.github.commits import get_latest_commit_evidence
     from cloudcleaner.tools.github.pull_requests import get_latest_pr_evidence
     from cloudcleaner.tools.github.cicd import get_cicd_evidence
-    
+
     github = get_github_client()
-    
+
     try:
         github.get_repo(repo)
+        commit_evidence = get_latest_commit_evidence(repo) or {}
+        pr_evidence = get_latest_pr_evidence(repo) or {}
+        cicd_evidence = get_cicd_evidence(repo) or {}
     except GithubException as exc:
         if exc.status == 404:
             return GitHubEvidence(repo=repo)
         raise
-        
-    commit_evidence = get_latest_commit_evidence(repo) or {}
-    pr_evidence = get_latest_pr_evidence(repo) or {}
-    cicd_evidence = get_cicd_evidence(repo) or {}
-    
+    except RequestException:
+        return GitHubEvidence(repo=repo)
+
     return GitHubEvidence(
         repo=repo,
         **commit_evidence,
         **pr_evidence,
         **cicd_evidence,
     )
-    

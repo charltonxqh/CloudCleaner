@@ -17,6 +17,8 @@ def approval_payload(resource, recommendation, plan) -> dict:
             "type": resource.resource_type,
             "state": resource.state,
             "monthly_cost": resource.estimated_monthly_cost,
+            "monthly_cost_if_stopped": resource.monthly_cost_if_stopped,
+            "monthly_saving_if_stopped": resource.monthly_saving_if_stopped,
             "billing_while_stopped": resource.billing_while_stopped,
         },
         "recommendation": {
@@ -24,13 +26,14 @@ def approval_payload(resource, recommendation, plan) -> dict:
             "reason": recommendation.reason,
             "confidence": recommendation.confidence,
             "severity": recommendation.severity,
+            "estimated_monthly_saving": recommendation.estimated_monthly_saving,
         },
         "plan": {
             "steps": [s.model_dump() for s in plan.steps],
             "total_monthly_saving": plan.total_monthly_saving,
             "irreversible_count": len(plan.irreversible_steps),
             "restore": plan.restore.model_dump() if plan.restore else None,
-        },
+        } if plan else None,
         "expected_command": f"APPROVE {resource.resource_id}",
     }
 
@@ -50,25 +53,17 @@ def approval_node(state: CloudCleanerState):
             approved_by="env:CLOUDCLEANER_AUTO_APPROVE"), "approval_rounds": rounds}
 
     plan = state.get("plan")
-    if plan is None:
-        # Single-Action path: no teardown was planned, so there is no ordered
-        # sequence to show a human. The policy gate already decided approval was
-        # needed; record the round and let routing collect the next one.
-        log.emit("approval", "decision", rid, f"approval round {rounds} (no teardown plan)")
-        return {
-            "approval": ApprovalDecision(
-                decision="approve",
-                approved_resource_ids=[rid],
-                approved_by="demo-user",
-                reason=f"Mock approval during development (round {rounds})",
-            ),
-            "approval_rounds": rounds,
-        }
-
     answer = interrupt(approval_payload(resource, state["recommendation"], plan))
 
+    if isinstance(answer, dict) and answer.get("decision") == "reject":
+        approved_by = answer.get("approved_by") or "ui"
+        log.emit("approval", "decision", rid, f"rejected by {approved_by}")
+        return {"approval": ApprovalDecision(
+            decision="keep", approved_by=approved_by, reason="Rejected by human"),
+            "approval_rounds": rounds}
+
     raw = answer if isinstance(answer, str) else (answer or {}).get("command", "")
-    approved_by = "ui" if isinstance(answer, dict) else "cli"
+    approved_by = (answer or {}).get("approved_by", "ui") if isinstance(answer, dict) else "cli"
 
     result = parse_approval(raw or "", rid)
     if not result["valid"]:

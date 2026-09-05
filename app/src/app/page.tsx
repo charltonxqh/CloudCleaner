@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/cloudcleaner/primitives";
 import { Sidebar, ViewHeader, type ViewId } from "@/components/cloudcleaner/shell";
@@ -24,6 +24,13 @@ const SUBTITLE: Record<ViewId, string> = {
   activity: "The agent's reasoning, one event per decision",
 };
 
+const INVESTIGATION_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type CachedInvestigation = {
+  data: Investigation;
+  cachedAt: number;
+};
+
 export default function Home() {
   const [view, setView] = useState<ViewId>("overview");
 
@@ -36,8 +43,10 @@ export default function Home() {
   // Investigations are cached per resource so returning to one is instant.
   // Re-running costs an LLM call, a GitHub call and a row in history, so it is
   // something the user asks for rather than a side effect of navigating.
-  const [cache, setCache] = useState<Record<string, Investigation>>({});
+  const [cache, setCache] = useState<Record<string, CachedInvestigation>>({});
   const [stale, setStale] = useState<Set<string>>(new Set());
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
+  const initialAnalysisStarted = useRef(false);
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,7 +83,15 @@ export default function Home() {
     } catch { /* history is non-critical */ }
   }, []);
 
-  useEffect(() => { load(); loadHistory(); }, [load, loadHistory]);
+  useEffect(() => {
+    if (initialAnalysisStarted.current) return;
+    initialAnalysisStarted.current = true;
+
+    void (async () => {
+      await Promise.all([load(), loadHistory()]);
+      await runSweep();
+    })();
+  }, [load, loadHistory]);
 
   async function investigate(r: Resource, opts: { force?: boolean; forcePlan?: boolean } = {}) {
     const id = r.resource_id;
@@ -83,19 +100,24 @@ export default function Home() {
     setView("investigation");
 
     const cached = cache[id];
-    if (cached && !opts.force && !opts.forcePlan) {
-      setInvestigation(cached);
-      setEvents(cached.reasoning);
+    const cacheIsFresh = cached
+      && !stale.has(id)
+      && Date.now() - cached.cachedAt < INVESTIGATION_CACHE_TTL_MS;
+    if (cacheIsFresh && !opts.force && !opts.forcePlan) {
+      setInvestigation(cached.data);
+      setEvents(cached.data.reasoning);
+      setCachedAt(cached.cachedAt);
       return;
     }
 
+    setCachedAt(null);
     setBusy(id);
     setInvestigation(null);
     try {
       const data = await api.investigate(id, opts.forcePlan ?? false);
       setInvestigation(data);
       setEvents(data.reasoning);
-      setCache((c) => ({ ...c, [id]: data }));
+      setCache((c) => ({ ...c, [id]: { data, cachedAt: Date.now() } }));
       setStale((s) => { const n = new Set(s); n.delete(id); return n; });
       if (data.recommendation) {
         setVerdicts((v) => ({ ...v, [id]: data.recommendation!.action }));
@@ -116,6 +138,7 @@ export default function Home() {
       setEvents(s.reasoning);
       setCache({});
       setStale(new Set());
+      setCachedAt(null);
       setVerdicts(
         Object.fromEntries(
           s.results.filter((r) => r.action).map((r) => [r.resource_id, r.action!])
@@ -143,6 +166,7 @@ export default function Home() {
         delete next[investigation.resource.resource_id];
         return next;
       });
+      setCachedAt(null);
       await Promise.all([load(true), loadHistory()]);
     } catch {
       setError("Approval failed.");
@@ -169,6 +193,10 @@ export default function Home() {
         view={view}
         onNavigate={setView}
         badges={{ resources: resources.length, history: runs.length, activity: events.length }}
+        potentialSavings={sweep ? {
+          monthly: sweep.recoverable_monthly,
+          yearly: sweep.recoverable_yearly,
+        } : null}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -222,6 +250,7 @@ export default function Home() {
               onApprove={approve}
               onBack={() => setView("resources")}
               stale={selected ? stale.has(selected) : false}
+              cachedAt={cachedAt}
               onReinvestigate={() => {
                 const r = resources.find((x) => x.resource_id === selected);
                 if (r) investigate(r, { force: true });
