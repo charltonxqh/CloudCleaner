@@ -44,7 +44,11 @@ def parse_interaction(raw_body: bytes) -> dict:
 
     action = actions[0]
     action_id = action.get("action_id")
-    if action_id not in {"cloudcleaner_approve", "cloudcleaner_reject"}:
+    if action_id not in {
+        "cloudcleaner_approve",
+        "cloudcleaner_reject",
+        "cloudcleaner_email_owner",
+    }:
         raise ValueError("unknown Slack action")
 
     value = json.loads(action.get("value") or "{}")
@@ -57,8 +61,19 @@ def parse_interaction(raw_body: bytes) -> dict:
     channel = payload.get("channel") or {}
     message = payload.get("message") or {}
 
+    if action_id == "cloudcleaner_approve":
+        action_type = "approve"
+        decision = "approve"
+    elif action_id == "cloudcleaner_reject":
+        action_type = "reject"
+        decision = "reject"
+    else:
+        action_type = "email_owner"
+        decision = None
+
     return {
-        "decision": "approve" if action_id == "cloudcleaner_approve" else "reject",
+        "action": action_type,
+        "decision": decision,
         "thread_id": thread_id,
         "resource_id": resource_id,
         "approved_by": f"slack:{user.get('id', 'unknown')}",

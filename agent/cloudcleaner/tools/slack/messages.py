@@ -30,7 +30,11 @@ def slack_enabled() -> bool:
     return bool(os.getenv("SLACK_BOT_TOKEN") and os.getenv("SLACK_CHANNEL_ID"))
 
 
-def send_approval_request(thread_id: str, payload: dict) -> dict | None:
+def send_approval_request(
+    thread_id: str,
+    payload: dict,
+    owner_email: str | None = None,
+) -> dict | None:
     if not slack_enabled():
         return None
 
@@ -81,6 +85,33 @@ def send_approval_request(thread_id: str, payload: dict) -> dict | None:
         "resource_id": resource["id"],
     })
 
+    actions = [
+        {
+            "type": "button",
+            "text": {"type": "plain_text", "text": "Approve"},
+            "style": "primary",
+            "action_id": "cloudcleaner_approve",
+            "value": action_value,
+        },
+        {
+            "type": "button",
+            "text": {"type": "plain_text", "text": "Reject"},
+            "style": "danger",
+            "action_id": "cloudcleaner_reject",
+            "value": action_value,
+        },
+    ]
+
+    if owner_email:
+        actions.append(
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Email Owner"},
+                "action_id": "cloudcleaner_email_owner",
+                "value": action_value,
+            }
+        )
+
     return _post_json(
         "https://slack.com/api/chat.postMessage",
         {
@@ -96,22 +127,7 @@ def send_approval_request(thread_id: str, payload: dict) -> dict | None:
                 },
                 {
                     "type": "actions",
-                    "elements": [
-                        {
-                            "type": "button",
-                            "text": {"type": "plain_text", "text": "Approve"},
-                            "style": "primary",
-                            "action_id": "cloudcleaner_approve",
-                            "value": action_value,
-                        },
-                        {
-                            "type": "button",
-                            "text": {"type": "plain_text", "text": "Reject"},
-                            "style": "danger",
-                            "action_id": "cloudcleaner_reject",
-                            "value": action_value,
-                        },
-                    ],
+                    "elements": actions,
                 },
             ],
         },
@@ -133,5 +149,23 @@ def update_approval_message(channel: str, ts: str, text: str) -> dict | None:
                     "text": {"type": "mrkdwn", "text": text},
                 }
             ],
+        },
+    )
+
+
+def send_notification_status(
+    channel: str,
+    thread_ts: str,
+    text: str,
+) -> dict | None:
+    if not slack_enabled():
+        return None
+
+    return _post_json(
+        "https://slack.com/api/chat.postMessage",
+        {
+            "channel": channel,
+            "thread_ts": thread_ts,
+            "text": text,
         },
     )

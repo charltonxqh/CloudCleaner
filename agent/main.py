@@ -26,8 +26,13 @@ from cloudcleaner.storage.repository import (
     runs_for,
     totals,
 )
+from cloudcleaner.tools.email.messages import send_owner_notification
 from cloudcleaner.tools.slack.approvals import parse_interaction, verify_slack_signature
-from cloudcleaner.tools.slack.messages import send_approval_request, update_approval_message
+from cloudcleaner.tools.slack.messages import (
+    send_approval_request,
+    send_notification_status,
+    update_approval_message,
+)
 
 app = FastAPI()
 
@@ -46,6 +51,24 @@ def _scan(refresh: bool = False):
     if refresh or "latest" not in _scans:
         _scans["latest"] = detect_node({})
     return _scans["latest"]
+
+
+def _owner_email(resource) -> str | None:
+    if resource is None:
+        return None
+
+    tags = resource.tags or {}
+    return (
+        tags.get("OwnerEmail")
+        or tags.get("owner_email")
+        or os.getenv("CLOUDCLEANER_DEFAULT_OWNER_EMAIL")
+    )
+
+
+def _find_resource(resource_id: str):
+    scan = _scan()
+    pool = (scan.get("inventory") or []) + (scan.get("orphans") or [])
+    return next((r for r in pool if r.resource_id == resource_id), None)
 
 
 def _resume_slack_approval(interaction: dict):
@@ -71,6 +94,67 @@ def _resume_slack_approval(interaction: dict):
     if interaction.get("channel_id") and interaction.get("message_ts"):
         try:
             update_approval_message(interaction["channel_id"], interaction["message_ts"], text)
+        except Exception:
+            pass
+
+
+def _email_slack_owner(interaction: dict):
+    resource_id = interaction["resource_id"]
+    config = {"configurable": {"thread_id": interaction["thread_id"]}}
+
+    try:
+        resource = _find_resource(resource_id)
+        if resource is None:
+            raise RuntimeError(f"resource {resource_id} is no longer available")
+
+        owner_email = _owner_email(resource)
+        if not owner_email:
+            raise RuntimeError("owner email is not configured")
+
+        snapshot = graph.get_state(config)
+        state = snapshot.values
+
+        recommendation = state.get("recommendation")
+        plan = state.get("plan")
+
+        if recommendation is None:
+            raise RuntimeError("recommendation is not available for this approval")
+
+        response = send_owner_notification(
+            to_email=owner_email,
+            resource=resource,
+            recommendation=recommendation,
+            plan=plan,
+        )
+
+        message_id = response.get("MessageId")
+        log.emit(
+            "notify",
+            "decision",
+            resource_id,
+            f"owner notified by email: {owner_email}",
+        )
+
+        text = f"✉️ Owner notification sent to `{owner_email}`."
+        if message_id:
+            text += f" SES message ID: `{message_id}`"
+
+    except Exception as e:
+        log.emit(
+            "notify",
+            "error",
+            resource_id,
+            f"owner email failed: {e}",
+        )
+        text = f"⚠️ CloudCleaner could not email the owner: {e}"
+
+    if interaction.get("channel_id") and interaction.get("message_ts"):
+        try:
+            send_notification_status(
+                interaction["channel_id"],
+                interaction["message_ts"],
+                text,
+            )
         except Exception:
             pass
 
@@ -121,7 +205,11 @@ async def investigate(req: InvestigateRequest):
 
     if pending:
         try:
-            send_approval_request(thread_id, pending[0].value)
+            send_approval_request(
+                thread_id,
+                pending[0].value,
+                owner_email=_owner_email(resource),
+            )
         except Exception as e:
             log.emit("approval", "error", resource.resource_id, f"Slack approval message failed: {e}")
 
@@ -229,7 +317,11 @@ async def slack_interactions(request: Request, background_tasks: BackgroundTasks
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    background_tasks.add_task(_resume_slack_approval, interaction)
+    if interaction["action"] == "email_owner":
+        background_tasks.add_task(_email_slack_owner, interaction)
+    else:
+        background_tasks.add_task(_resume_slack_approval, interaction)
+
     return {"ok": True}
 
 
