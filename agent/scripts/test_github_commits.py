@@ -8,7 +8,7 @@ from cloudcleaner.tools.github.commits import get_latest_commit_evidence
 
 
 def main():
-    repo = "nus-test/nus-test.github.io"
+    repo = "PyGithub/PyGithub"
     print("_Repo WITH commit(s)_")
     
     evidence = get_latest_commit_evidence(repo)

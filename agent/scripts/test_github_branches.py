@@ -8,7 +8,7 @@ from cloudcleaner.tools.github.branches import branch_exists
 
 
 def main():
-    repo = "nus-test/nus-test.github.io"
+    repo = "PyGithub/PyGithub"
     
     existing_branch = "main"
     missing_branch = "this-branch-should-not-exist"
