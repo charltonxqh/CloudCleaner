@@ -20,6 +20,7 @@ from cloudcleaner.evidence.collector import log
 from cloudcleaner.graph.graph import graph
 from cloudcleaner.graph.nodes.detect import detect_node
 from cloudcleaner.storage.repository import (
+    evaluation_metrics,
     event_stats,
     events_for,
     list_runs,
@@ -34,6 +35,7 @@ from cloudcleaner.tools.slack.messages import (
     update_approval_message,
 )
 
+
 app = FastAPI()
 
 app.add_middleware(
@@ -43,6 +45,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 _scans: dict[str, dict] = {}
 
@@ -159,6 +162,73 @@ def _email_slack_owner(interaction: dict):
             pass
 
 
+def _dump_model(value):
+    if value is None:
+        return None
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    return value
+
+
+def _thread_status(thread_id: str) -> dict:
+    config = {"configurable": {"thread_id": thread_id}}
+
+    try:
+        snapshot = graph.get_state(config)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"unknown thread {thread_id}") from e
+
+    state = snapshot.values or {}
+    if not state:
+        raise HTTPException(status_code=404, detail=f"unknown thread {thread_id}")
+
+    resource = state.get("resource")
+    resource_id = resource.resource_id if resource else None
+    approval = state.get("approval")
+    run_id = state.get("run_id")
+
+    tasks = getattr(snapshot, "tasks", ()) or ()
+    awaiting_approval = any(
+        bool(getattr(task, "interrupts", ()))
+        for task in tasks
+    )
+
+    if awaiting_approval:
+        phase = "awaiting_approval"
+    elif state.get("error"):
+        phase = "error"
+    elif run_id:
+        phase = "completed"
+    else:
+        phase = "running"
+
+    if run_id:
+        reasoning = events_for(run_id)
+    else:
+        reasoning = [
+            event
+            for event in log.events
+            if resource_id is None or event.get("resource_id") in (resource_id, "-")
+        ]
+
+    return {
+        "thread_id": thread_id,
+        "resource_id": resource_id,
+        "phase": phase,
+        "awaiting_approval": awaiting_approval,
+        "run_id": run_id,
+        "decision": approval.decision if approval else None,
+        "approved_by": approval.approved_by if approval else None,
+        "reason": approval.reason if approval else None,
+        "recommendation": _dump_model(state.get("recommendation")),
+        "plan": _dump_model(state.get("plan")),
+        "action_results": state.get("action_results") or [],
+        "verification_passed": state.get("verification_passed"),
+        "reasoning": reasoning,
+        "error": state.get("error"),
+    }
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -226,9 +296,20 @@ async def investigate(req: InvestigateRequest):
     }
 
 
+@app.get("/threads/{thread_id}/status")
+async def thread_status(thread_id: str):
+    """Current state of one investigation, including a paused Slack approval."""
+    return _thread_status(thread_id)
+
+
 @app.get("/history")
 async def history(limit: int = 50):
     return {"runs": list_runs(limit), "totals": totals(), "stats": event_stats()}
+
+
+@app.get("/evaluation")
+async def evaluation():
+    return evaluation_metrics()
 
 
 @app.get("/runs/{run_id}/events")

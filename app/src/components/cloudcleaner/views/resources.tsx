@@ -30,13 +30,14 @@ function matches(r: Resource, f: Filter) {
 }
 
 export function ResourcesView({
-  resources, selected, busy, verdicts, onSelect,
+  resources, selected, busy, verdicts, onSelect, compact = false,
 }: {
   resources: Resource[];
   selected: string | null;
   busy: string | null;
   verdicts: Record<string, Recommendation["action"]>;
   onSelect: (r: Resource) => void;
+  compact?: boolean;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
@@ -59,18 +60,18 @@ export function ResourcesView({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div
-        className="flex shrink-0 flex-wrap items-center gap-2 px-5 py-2.5"
+        className="flex shrink-0 flex-wrap items-center gap-2.5 px-5 py-3"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
-        <div className="flex gap-1" role="group" aria-label="Filter resources">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter resources">
           {FILTERS.map((f) => (
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
               aria-pressed={filter === f.id}
-              className="px-2.5 text-[12px] transition-colors duration-150"
+              className="px-3 text-[13px] transition-colors duration-150"
               style={{
-                minHeight: 30,
+                minHeight: 34,
                 borderRadius: "var(--radius)",
                 background: filter === f.id ? "var(--primary-dim)" : "transparent",
                 color: filter === f.id ? "var(--primary)" : "var(--fg-muted)",
@@ -88,13 +89,18 @@ export function ResourcesView({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search id, name or tag…"
-          className="mono ml-auto w-[220px] px-2.5 text-[12px] outline-none"
+          className="mono ml-auto px-3 text-[13px] outline-none"
           style={{
-            minHeight: 30, background: "var(--bg)", color: "var(--fg)",
-            border: "1px solid var(--border-strong)", borderRadius: "var(--radius)",
+            width: compact ? 190 : 250,
+            minHeight: 34,
+            background: "var(--bg)",
+            color: "var(--fg)",
+            border: "1px solid var(--border-strong)",
+            borderRadius: "var(--radius)",
           }}
         />
-        <span className="num text-[11px]" style={{ color: "var(--fg-faint)" }}>
+
+        <span className="num text-[12px]" style={{ color: "var(--fg-faint)" }}>
           {rows.length} · {money(shown)}/mo
         </span>
       </div>
@@ -103,14 +109,19 @@ export function ResourcesView({
         {rows.length === 0 ? (
           <Empty>No resources match that filter.</Empty>
         ) : (
-          <table className="w-full border-collapse text-[13px]">
+          <table className="w-full border-collapse text-[14px]">
             <thead className="sticky top-0 z-10">
               <tr style={{ background: "var(--surface-2)" }}>
-                {["Resource", "Type", "State", "Attached to", "Verdict", "$/mo"].map((h, i) => (
+                {(compact
+                  ? ["Resource", "State", "Verdict", "$/mo"]
+                  : ["Resource", "Type", "State", "Attached to", "Verdict", "$/mo"]
+                ).map((h, i, headers) => (
                   <th
                     key={h}
                     scope="col"
-                    className={`label px-4 py-2 ${i === 5 ? "text-right" : "text-left"}`}
+                    className={`label px-4 py-2.5 ${
+                      i === headers.length - 1 ? "text-right" : "text-left"
+                    }`}
                     style={{ borderBottom: "1px solid var(--border)" }}
                   >
                     {h}
@@ -118,6 +129,7 @@ export function ResourcesView({
                 ))}
               </tr>
             </thead>
+
             <tbody>
               {rows.map((r, i) => {
                 const isSelected = r.resource_id === selected;
@@ -132,29 +144,38 @@ export function ResourcesView({
                     role="button"
                     aria-pressed={isSelected}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(r); }
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelect(r);
+                      }
                     }}
                     className="rise cursor-pointer transition-colors duration-150"
                     style={{
                       ["--i" as string]: i,
                       background: isSelected ? "var(--surface-3)" : "transparent",
-                      boxShadow: isSelected ? "inset 2px 0 0 var(--primary)" : "none",
+                      boxShadow: isSelected ? "inset 3px 0 0 var(--primary)" : "none",
                       borderBottom: "1px solid var(--border)",
                     }}
                   >
-                    <td className="px-4 py-2.5">
-                      <div className="mono truncate text-[12px]">{r.resource_id}</div>
+                    <td className="px-4 py-3.5">
+                      <div className="mono truncate text-[13px]">{r.resource_id}</div>
                       <div
-                        className={`truncate text-[11px] ${isBusy ? "pulse" : ""}`}
+                        className={`mt-1 truncate text-[12px] ${isBusy ? "pulse" : ""}`}
                         style={{ color: isBusy ? "var(--primary)" : "var(--fg-faint)" }}
                       >
-                        {isBusy ? "investigating…" : r.name || (r.size_gb ? `${r.size_gb} GB` : "untagged")}
+                        {isBusy
+                          ? "investigating…"
+                          : r.name || (r.size_gb ? `${r.size_gb} GB` : "untagged")}
                       </div>
                     </td>
-                    <td className="mono px-4 py-2.5 text-[11px]" style={{ color: "var(--fg-muted)" }}>
-                      {TYPE_LABEL[r.resource_type] ?? r.resource_type.toUpperCase()}
-                    </td>
-                    <td className="px-4 py-2.5">
+
+                    {!compact && (
+                      <td className="mono px-4 py-3.5 text-[12px]" style={{ color: "var(--fg-muted)" }}>
+                        {TYPE_LABEL[r.resource_type] ?? r.resource_type.toUpperCase()}
+                      </td>
+                    )}
+
+                    <td className="px-4 py-3.5">
                       <Tag
                         tone={r.billing_while_stopped ? "danger" : r.state === "running" ? "ok" : "muted"}
                         dot={r.billing_while_stopped}
@@ -162,18 +183,23 @@ export function ResourcesView({
                         {r.state ?? "—"}
                       </Tag>
                     </td>
-                    <td className="mono px-4 py-2.5 text-[11px]" style={{ color: "var(--fg-muted)" }}>
-                      {r.attached_to ?? <span style={{ color: "var(--fg-faint)" }}>nothing</span>}
-                    </td>
-                    <td className="px-4 py-2.5">
+
+                    {!compact && (
+                      <td className="mono px-4 py-3.5 text-[12px]" style={{ color: "var(--fg-muted)" }}>
+                        {r.attached_to ?? <span style={{ color: "var(--fg-faint)" }}>nothing</span>}
+                      </td>
+                    )}
+
+                    <td className="px-4 py-3.5">
                       {verdict ? (
                         <Tag tone={VERDICT_TONE[verdict]}>{verdict.replace("_", " ")}</Tag>
                       ) : (
-                        <span className="text-[11px]" style={{ color: "var(--fg-faint)" }}>—</span>
+                        <span className="text-[12px]" style={{ color: "var(--fg-faint)" }}>—</span>
                       )}
                     </td>
+
                     <td
-                      className="num px-4 py-2.5 text-right"
+                      className="num px-4 py-3.5 text-right text-[14px]"
                       style={{ color: r.billing_while_stopped ? "var(--danger)" : "var(--fg)" }}
                     >
                       {money(r.estimated_monthly_cost)}

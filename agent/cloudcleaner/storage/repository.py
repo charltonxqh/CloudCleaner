@@ -210,3 +210,130 @@ def totals(path: Path | None = None) -> dict:
         "realised_monthly": round(r["realised"] or 0, 2),
         "simulated_monthly": round(r["simulated"] or 0, 2),
     }
+
+
+def evaluation_metrics(path: Path | None = None) -> dict:
+    """Evaluation metrics that can be derived from the evidence already recorded.
+
+    Recommendation accuracy still needs an independently labelled benchmark.
+    Token cost still needs provider token-usage telemetry. Those are reported as
+    unavailable rather than manufacturing a score from unrelated data.
+
+    The remaining metrics use data CloudCleaner already persists:
+    - tool-call success: instrumented investigate/execute/notify stages
+    - teardown correctness: actionable retirement plans, plus complete execution
+      and verification when an approved plan actually ran
+    - savings accuracy: predicted saving against direct billed cost for independent
+      EBS/EIP resources, where the reference amount is unambiguous
+    """
+    stats = event_stats(path)
+
+    with connect(path) as conn:
+        tool_rows = conn.execute(
+            """SELECT node, event, COUNT(*) AS n
+               FROM events
+               WHERE node IN ('investigate', 'execute', 'notify')
+               GROUP BY node, event"""
+        ).fetchall()
+
+        plan_rows = conn.execute(
+            """SELECT planned_steps, blocked, decision, executed, verified
+               FROM runs
+               WHERE verdict = 'retire'"""
+        ).fetchall()
+
+        saving_rows = conn.execute(
+            """SELECT resource_type, verdict, monthly_cost, monthly_saving
+               FROM runs
+               WHERE resource_type IN ('ebs', 'eip')
+                 AND verdict IN ('retire', 'keep')
+                 AND monthly_cost IS NOT NULL"""
+        ).fetchall()
+
+    tool_successes = 0
+    tool_failures = 0
+    successful_events = {
+        ("investigate", "finding"),
+        ("execute", "action"),
+        ("notify", "decision"),
+    }
+
+    for row in tool_rows:
+        key = (row["node"], row["event"])
+        if row["event"] == "error":
+            tool_failures += row["n"]
+        elif key in successful_events:
+            tool_successes += row["n"]
+
+    tool_attempts = tool_successes + tool_failures
+    tool_success_rate = (
+        round(tool_successes / tool_attempts, 3) if tool_attempts else None
+    )
+
+    plan_samples = 0
+    correct_plans = 0
+
+    for row in plan_rows:
+        try:
+            blocked = json.loads(row["blocked"] or "[]")
+        except (TypeError, json.JSONDecodeError):
+            blocked = []
+
+        if blocked:
+            continue
+
+        plan_samples += 1
+        correct = row["planned_steps"] > 0
+
+        if row["decision"] == "approve" and row["executed"] > 0:
+            correct = (
+                correct
+                and row["executed"] == row["planned_steps"]
+                and row["verified"] != 0
+            )
+
+        if correct:
+            correct_plans += 1
+
+    teardown_plan_correctness = (
+        round(correct_plans / plan_samples, 3) if plan_samples else None
+    )
+
+    saving_scores: list[float] = []
+
+    for row in saving_rows:
+        reference = float(row["monthly_cost"] or 0.0)
+        predicted = float(row["monthly_saving"] or 0.0)
+
+        if row["verdict"] == "keep":
+            reference = 0.0
+
+        if reference == 0:
+            score = 1.0 if predicted == 0 else 0.0
+        else:
+            score = max(0.0, 1 - abs(predicted - reference) / reference)
+
+        saving_scores.append(score)
+
+    savings_accuracy = (
+        round(sum(saving_scores) / len(saving_scores), 3)
+        if saving_scores
+        else None
+    )
+
+    return {
+        "recommendation_accuracy": None,
+        "recommendation_samples": 0,
+        "schema_validation_rate": stats["llm_success_rate"],
+        "schema_validation_samples": stats["assessments"],
+        "avg_token_cost_usd": None,
+        "token_cost_samples": 0,
+        "tool_call_success_rate": tool_success_rate,
+        "tool_call_successes": tool_successes,
+        "tool_call_attempts": tool_attempts,
+        "teardown_plan_correctness": teardown_plan_correctness,
+        "teardown_plan_correct": correct_plans,
+        "teardown_plan_samples": plan_samples,
+        "savings_accuracy": savings_accuracy,
+        "savings_accuracy_samples": len(saving_scores),
+    }

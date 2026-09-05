@@ -136,12 +136,56 @@ export type Investigation = {
   reasoning: ReasoningEvent[];
 };
 
+export type ActionResult = {
+  action: string;
+  resource_id: string;
+  ok: boolean;
+  detail: string;
+  dry_run: boolean;
+};
+
 export type ApprovalResult = {
   decision: string;
   reason: string | null;
-  action_results: { action: string; resource_id: string; ok: boolean; detail: string; dry_run: boolean }[];
+  approved_by?: string | null;
+  action_results: ActionResult[];
   verification_passed: boolean | null;
   reasoning: ReasoningEvent[];
+  run_id?: string | null;
+};
+
+export type ThreadStatus = {
+  thread_id: string;
+  resource_id: string | null;
+  phase: "running" | "awaiting_approval" | "completed" | "error";
+  awaiting_approval: boolean;
+  run_id: string | null;
+  decision: string | null;
+  approved_by: string | null;
+  reason: string | null;
+  recommendation: Recommendation | null;
+  plan: Plan | null;
+  action_results: ActionResult[];
+  verification_passed: boolean | null;
+  reasoning: ReasoningEvent[];
+  error: string | null;
+};
+
+export type EvaluationMetrics = {
+  recommendation_accuracy: number | null;
+  recommendation_samples: number;
+  schema_validation_rate: number | null;
+  schema_validation_samples: number;
+  avg_token_cost_usd: number | null;
+  token_cost_samples: number;
+  tool_call_success_rate: number | null;
+  tool_call_successes: number;
+  tool_call_attempts: number;
+  teardown_plan_correctness: number | null;
+  teardown_plan_correct: number;
+  teardown_plan_samples: number;
+  savings_accuracy: number | null;
+  savings_accuracy_samples: number;
 };
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -163,11 +207,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ resource_id, force_plan }),
     }),
+  threadStatus: (threadId: string) =>
+    req<ThreadStatus>(`/threads/${threadId}/status`),
   sweep: () => req<SweepResult>("/sweep", { method: "POST" }),
   history: (limit = 50) =>
     req<{ runs: Run[]; totals: HistoryTotals; stats: EventStats }>(
       `/history?limit=${limit}`
     ),
+  evaluation: () => req<EvaluationMetrics>("/evaluation"),
   runEvents: (runId: string) =>
     req<{ run_id: string; events: ReasoningEvent[] }>(`/runs/${runId}/events`),
   approve: (thread_id: string, command: string) =>
