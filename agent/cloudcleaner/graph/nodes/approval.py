@@ -59,7 +59,7 @@ def approval_node(state: CloudCleanerState):
         approved_by = answer.get("approved_by") or "ui"
         log.emit("approval", "decision", rid, f"rejected by {approved_by}")
         return {"approval": ApprovalDecision(
-            decision="keep", approved_by=approved_by, reason="Rejected by human"),
+            decision="reject", approved_by=approved_by, reason="Rejected by human"),
             "approval_rounds": rounds}
 
     raw = answer if isinstance(answer, str) else (answer or {}).get("command", "")
@@ -67,9 +67,10 @@ def approval_node(state: CloudCleanerState):
 
     result = parse_approval(raw or "", rid)
     if not result["valid"]:
-        log.emit("approval", "decision", rid, f"not approved: {result['error']}")
-        return {"approval": ApprovalDecision(decision="keep", reason=result["error"]),
-                "approval_rounds": rounds}
+        log.emit("approval", "decision", rid, f"invalid approval response: {result['error']}")
+        return {"approval": ApprovalDecision(
+            decision="invalid", reason=result["error"]),
+            "approval_rounds": rounds}
 
     log.emit("approval", "decision", rid, "approved by human")
     return {"approval": ApprovalDecision(

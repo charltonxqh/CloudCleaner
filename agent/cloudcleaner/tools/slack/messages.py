@@ -52,10 +52,29 @@ def send_approval_request(thread_id: str, payload: dict) -> dict | None:
         f"*Reason:* {recommendation['reason']}",
     ]
     if plan:
-        details.append(
-            f"*Teardown:* {len(plan.get('steps', []))} steps, "
-            f"{plan.get('irreversible_count', 0)} irreversible"
-        )
+        steps = plan.get("steps", [])
+        step_lines = []
+
+        for index, step in enumerate(steps, start=1):
+            order = step.get("order") or index
+            action = step.get("action") or "unknown_action"
+            resource_id = step.get("resource_id") or ""
+            irreversible = " ⚠ irreversible" if not step.get("reversible", True) else ""
+
+            step_lines.append(
+                f"{order}. `{action}` — `{resource_id}`{irreversible}"
+            )
+
+        if step_lines:
+            details.append("*Teardown plan:*\n" + "\n".join(step_lines))
+        else:
+            details.append("*Teardown plan:* No teardown steps.")
+
+        irreversible_count = plan.get("irreversible_count", 0)
+        if irreversible_count:
+            details.append(
+                f"*Irreversible actions:* {irreversible_count}"
+            )
 
     action_value = json.dumps({
         "thread_id": thread_id,

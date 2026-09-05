@@ -93,8 +93,8 @@ class Recommendation(BaseModel):
 class ApprovalDecision(BaseModel):
     decision: Literal[
         "approve",
-        "keep",
-        "investigate_more",
+        "reject",
+        "invalid",
     ]
 
     approved_resource_ids: list[str] = Field(default_factory=list)

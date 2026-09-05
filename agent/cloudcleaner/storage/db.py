@@ -49,10 +49,9 @@ CREATE TABLE IF NOT EXISTS decisions (
     last_reason       TEXT,
     human_decision    TEXT,
     human_decided_at  TEXT,
+    human_decided_by  TEXT,
     times_seen        INTEGER DEFAULT 1,
-    times_kept        INTEGER DEFAULT 0,
-    retired_at        TEXT,
-    evidence          TEXT DEFAULT '{}'
+    retired_at        TEXT
 );
 
 -- One row per logged decision. run_id is filled in when the run is recorded,

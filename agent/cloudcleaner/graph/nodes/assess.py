@@ -48,8 +48,8 @@ def _model():
 def _memory_note(resource_id: str) -> str:
     """What we already concluded about this resource, phrased for the prompt.
 
-    A human who kept something once should not be asked the same question every
-    week, so a past decision is stated plainly and the model is told to weigh it.
+    Previous automated assessments are historical context. Explicit human
+    approval or rejection is recorded separately and stated plainly.
     """
     from cloudcleaner.storage.repository import recall
 
@@ -59,22 +59,25 @@ def _memory_note(resource_id: str) -> str:
 
     lines = [f"\nYou have looked at this resource {memory['times_seen']} time(s) before."]
 
-    if memory.get("human_decision") == "keep":
+    if memory.get("human_decision") == "reject":
+        decided_by = memory.get("human_decided_by") or "a human"
         lines.append(
-            f"A human explicitly chose to KEEP it on {memory['human_decided_at']}. "
-            "Do not recommend retiring it again unless the evidence has changed since then "
-            "- say what changed if you do."
+            f"The previous proposed action was explicitly REJECTED by {decided_by} "
+            f"on {memory['human_decided_at']}. Consider that governance decision, "
+            "but re-evaluate the resource from the current evidence."
         )
     elif memory.get("human_decision") == "approve":
-        lines.append("A human previously approved action on this resource.")
+        decided_by = memory.get("human_decided_by") or "a human"
+        lines.append(
+            f"A previous proposed action was explicitly APPROVED by {decided_by} "
+            f"on {memory['human_decided_at']}."
+        )
 
     if memory.get("last_verdict"):
-        lines.append(f"Your last verdict was '{memory['last_verdict']}': {memory['last_reason']}")
-
-    if (memory.get("times_kept") or 0) >= 2:
         lines.append(
-            f"It has been kept {memory['times_kept']} times. Repeatedly re-proposing a "
-            "retirement that keeps getting refused wastes the reviewer's attention."
+            f"A previous automated assessment was '{memory['last_verdict']}': "
+            f"{memory['last_reason']}. Treat this as historical context only; "
+            "base the current verdict on the current evidence."
         )
 
     return "\n".join(lines)

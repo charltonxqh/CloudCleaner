@@ -77,26 +77,27 @@ def record_run(
 
 def _remember(conn, run: dict) -> None:
     """Fold this run into the resource's standing record."""
-    kept = 1 if run["decision"] == "keep" or run["verdict"] == "keep" else 0
+    human_decision = run["decision"] if run["decision"] in ("approve", "reject") else None
+    human_decided_at = run["at"] if human_decision else None
+    human_decided_by = run["approved_by"] if human_decision else None
     retired_at = run["at"] if run["executed"] and not run["dry_run"] else None
 
     conn.execute(
         """INSERT INTO decisions (resource_id, last_seen_at, last_verdict, last_reason,
-               human_decision, human_decided_at, times_seen, times_kept, retired_at)
-           VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+               human_decision, human_decided_at, human_decided_by, times_seen, retired_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
            ON CONFLICT(resource_id) DO UPDATE SET
-               last_seen_at     = excluded.last_seen_at,
-               last_verdict     = excluded.last_verdict,
-               last_reason      = excluded.last_reason,
-               human_decision   = COALESCE(excluded.human_decision, decisions.human_decision),
-               human_decided_at = COALESCE(excluded.human_decided_at, decisions.human_decided_at),
-               times_seen       = decisions.times_seen + 1,
-               times_kept       = decisions.times_kept + excluded.times_kept,
-               retired_at       = COALESCE(excluded.retired_at, decisions.retired_at)""",
+               last_seen_at      = excluded.last_seen_at,
+               last_verdict      = excluded.last_verdict,
+               last_reason       = excluded.last_reason,
+               human_decision    = COALESCE(excluded.human_decision, decisions.human_decision),
+               human_decided_at  = COALESCE(excluded.human_decided_at, decisions.human_decided_at),
+               human_decided_by  = COALESCE(excluded.human_decided_by, decisions.human_decided_by),
+               times_seen        = decisions.times_seen + 1,
+               retired_at        = COALESCE(excluded.retired_at, decisions.retired_at)""",
         (
             run["resource_id"], run["at"], run["verdict"], run["reason"],
-            run["decision"], run["at"] if run["decision"] else None,
-            kept, retired_at,
+            human_decision, human_decided_at, human_decided_by, retired_at,
         ),
     )
 
@@ -192,7 +193,7 @@ def totals(path: Path | None = None) -> dict:
             """SELECT
                    COUNT(*)                                              AS runs,
                    SUM(decision = 'approve')                             AS approved,
-                   SUM(verdict = 'keep' OR decision = 'keep')            AS kept,
+                   SUM(verdict = 'keep')                                 AS kept,
                    SUM(blocked != '[]')                                  AS blocked,
                    COALESCE(SUM(CASE WHEN decision = 'approve' AND executed > 0
                                      AND dry_run = 0 THEN monthly_saving END), 0) AS realised,

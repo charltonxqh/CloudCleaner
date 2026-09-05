@@ -47,6 +47,7 @@ class CloudCleanerState(TypedDict, total=False):
     verification_passed: bool
 
     force_plan: bool
+    analysis_only: bool
     run_id: str
     done_reason: str
     error: str

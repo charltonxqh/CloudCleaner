@@ -48,6 +48,9 @@ def route_after_policy_check(state) -> str:
     human, whatever the risk score said. Terminating an instance or deleting
     a volume cannot be undone by the rollback node.
     """
+    if state.get("analysis_only"):
+        return "record"
+
     plan = state.get("plan")
     if plan is not None and plan.irreversible_steps:
         return "approval"
@@ -64,6 +67,10 @@ def route_after_approval(state) -> str:
     1, but this supports more if a future rule ever needs it).
     """
     approval = state.get("approval")
+
+    if approval is not None and approval.decision == "invalid":
+        return "approval"
+
     if approval is not None and approval.decision != "approve":
         # A human declined. Record the run rather than executing anyway.
         return "record"

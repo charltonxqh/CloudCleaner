@@ -82,7 +82,7 @@ def build_graph(checkpointer=None):
     )
     builder.add_conditional_edges(
         "policy_check", route_after_policy_check,
-        {"approval": "approval", "execute": "execute"},
+        {"approval": "approval", "execute": "execute", "record": "record"},
     )
     builder.add_conditional_edges(
         "approval", route_after_approval,

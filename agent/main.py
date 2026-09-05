@@ -59,7 +59,7 @@ def _resume_slack_approval(interaction: dict):
     try:
         result = graph.invoke(Command(resume=resume), config)
         approval = result.get("approval")
-        decision = approval.decision if approval else "keep"
+        decision = approval.decision if approval else None
         status = "approved" if decision == "approve" else "rejected"
         text = (
             f"*CloudCleaner {status}* for `{interaction['resource_id']}` "
@@ -163,7 +163,9 @@ async def sweep():
     rows, recoverable = [], 0.0
     for resource in candidates:
         config = {"configurable": {"thread_id": str(uuid.uuid4())}}
-        result = graph.invoke({**scan, "resource": resource}, config)
+        result = graph.invoke(
+            {**scan, "resource": resource, "analysis_only": True}, config
+        )
 
         rec = result.get("recommendation")
         plan = result.get("plan")
@@ -174,11 +176,6 @@ async def sweep():
         else:
             saving = 0.0
         recoverable += saving
-
-        # A sweep assesses, it never approves. Close the thread so the run is
-        # recorded as "not approved" instead of dangling at the interrupt.
-        if result.get("__interrupt__"):
-            result = graph.invoke(Command(resume=""), config)
 
         rows.append({
             "run_id": result.get("run_id"),
@@ -210,7 +207,7 @@ async def approve(req: ApproveRequest):
     run_id = result.get("run_id")
 
     return {
-        "decision": approval.decision if approval else "keep",
+        "decision": approval.decision if approval else None,
         "reason": approval.reason if approval else None,
         "action_results": result.get("action_results") or [],
         "verification_passed": result.get("verification_passed"),
