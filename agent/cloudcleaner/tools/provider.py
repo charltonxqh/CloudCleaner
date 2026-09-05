@@ -46,7 +46,11 @@ def get_ec2_usage_evidence(instance_id: str, days: int | None = None):
 def get_github_evidence(repo: str | None = None) -> GitHubEvidence:
     if not repo:
         return GitHubEvidence()
-    
+
+    if _fixture():
+        from cloudcleaner.fixtures.demo import get_github_evidence as fn
+        return fn(repo)
+
     from github import GithubException
     
     from cloudcleaner.tools.github.client import get_github_client

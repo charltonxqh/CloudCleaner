@@ -61,6 +61,16 @@ USAGE = {
                           network_in_bytes=9.2e9, network_out_bytes=7.7e9),
 }
 
+# Matches the §5.2 demo narrative: "last commit 6 weeks ago, branch deleted, PR merged."
+GITHUB = {
+    "wkxcass/cloudcleaner-demo-payments": dict(
+        latest_commit_at="2026-07-20T10:00:00+00:00",
+        pr_number=42, pr_status="merged", branch="feature/payments-poc",
+        branch_exists=False, last_workflow_run_at="2026-07-20T10:30:00+00:00",
+        scheduled_workflow_exists=False,
+    ),
+}
+
 
 def list_ec2_instances():
     return [i.model_copy(deep=True) for i in INSTANCES]
@@ -78,3 +88,10 @@ def list_elastic_ips():
 def get_ec2_usage_evidence(instance_id: str, days: int = 7):
     from cloudcleaner.schemas import AWSEvidence
     return AWSEvidence(metric_window_days=days, **USAGE.get(instance_id, {}))
+
+
+def get_github_evidence(repo: str | None = None):
+    from cloudcleaner.schemas import GitHubEvidence
+    if not repo:
+        return GitHubEvidence()
+    return GitHubEvidence(repo=repo, **GITHUB.get(repo, {}))
