@@ -1,5 +1,7 @@
-"""Backend configuration. Reads environment variables (via app/.env) with
-sane defaults. Add settings here as new components need them.
+"""Backend configuration.
+
+Paths are discovered rather than assumed, so the package works from a checkout,
+from any working directory, or installed into site-packages.
 """
 
 import os
@@ -7,10 +9,56 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-load_dotenv(PROJECT_ROOT / ".env")
+SEARCH_DEPTH = 4
 
-# Kept as an alias for callers that still import APP_DIR.
+
+def find_env_file() -> Path | None:
+    """Locate .env without assuming a git checkout.
+
+    Order: an explicit CLOUDCLEANER_ENV_FILE, then upwards from the working
+    directory, then upwards from this package, then ~/.cloudcleaner/.env. The
+    package walk keeps `uv run` working from inside agent/; the cwd walk is what
+    makes an installed copy usable from anywhere.
+    """
+    explicit = os.getenv("CLOUDCLEANER_ENV_FILE")
+    if explicit:
+        candidate = Path(explicit).expanduser()
+        return candidate if candidate.is_file() else None
+
+    for start in (Path.cwd(), Path(__file__).resolve().parent):
+        for directory in [start, *start.parents][:SEARCH_DEPTH]:
+            candidate = directory / ".env"
+            if candidate.is_file():
+                return candidate
+
+    home = Path.home() / ".cloudcleaner" / ".env"
+    return home if home.is_file() else None
+
+
+ENV_FILE = find_env_file()
+if ENV_FILE:
+    load_dotenv(ENV_FILE)
+
+
+def find_data_dir() -> Path:
+    """Where the database, reasoning log and restore recipes are written.
+
+    Beside the .env when there is one, so a checkout keeps using output/.
+    Otherwise ~/.cloudcleaner, so an installed copy never writes to
+    site-packages.
+    """
+    explicit = os.getenv("CLOUDCLEANER_DATA_DIR")
+    if explicit:
+        return Path(explicit).expanduser()
+    if ENV_FILE:
+        return ENV_FILE.parent / "output"
+    return Path.home() / ".cloudcleaner"
+
+
+DATA_DIR = find_data_dir()
+
+# Back-compat aliases. Prefer DATA_DIR for anything that writes.
+PROJECT_ROOT = ENV_FILE.parent if ENV_FILE else Path.cwd()
 APP_DIR = PROJECT_ROOT
 
 # Top-level constants for simple `from cloudcleaner.config import X` imports.

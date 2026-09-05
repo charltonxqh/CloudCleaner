@@ -3,10 +3,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from cloudcleaner.config import PROJECT_ROOT
+from cloudcleaner.config import DATA_DIR
 
 EVENT_TYPES = {"check", "finding", "skip", "decision", "action", "handoff", "error"}
-DEFAULT_LOG = PROJECT_ROOT / "output" / "reasoning.jsonl"
+DEFAULT_LOG = DATA_DIR / "reasoning.jsonl"
 
 
 class ReasoningLog:

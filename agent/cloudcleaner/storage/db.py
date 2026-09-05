@@ -12,9 +12,9 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-from cloudcleaner.config import PROJECT_ROOT
+from cloudcleaner.config import DATA_DIR
 
-DB_PATH = PROJECT_ROOT / "output" / "cloudcleaner.db"
+DB_PATH = DATA_DIR / "cloudcleaner.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (
