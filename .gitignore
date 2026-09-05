@@ -11,6 +11,7 @@ design-system/
 
 # Python
 __pycache__/
+.hypothesis/
 *.py[cod]
 .venv/
 *.egg-info/

@@ -1,4 +1,5 @@
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
 from cloudcleaner.graph.nodes.approval import approval_node
@@ -20,6 +21,37 @@ from cloudcleaner.graph.routing import (
     route_after_verify,
 )
 from cloudcleaner.graph.state import CloudCleanerState
+
+
+def _default_checkpointer():
+    """Persist paused runs so an approval survives an agent restart.
+
+    Falls back to memory if the file cannot be opened - a demo on a read-only
+    filesystem should still work, it just forgets interrupted runs.
+    """
+    import sqlite3
+
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+    from cloudcleaner.storage.db import DB_PATH
+
+    # Declare our own models rather than deserialising whatever the checkpoint
+    # file happens to contain.
+    from cloudcleaner import schemas
+
+    allowed = [
+        getattr(schemas, n) for n in dir(schemas)
+        if isinstance(getattr(schemas, n), type) and getattr(schemas, n).__module__
+        == "cloudcleaner.schemas"
+    ]
+    serde = JsonPlusSerializer(allowed_msgpack_modules=allowed)
+
+    try:
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        return SqliteSaver(conn, serde=serde)
+    except sqlite3.Error:
+        return MemorySaver(serde=serde)
 
 
 def build_graph(checkpointer=None):
@@ -62,7 +94,7 @@ def build_graph(checkpointer=None):
     builder.add_edge("rollback", "record")
     builder.add_edge("record", END)
 
-    return builder.compile(checkpointer=checkpointer or MemorySaver())
+    return builder.compile(checkpointer=checkpointer or _default_checkpointer())
 
 
 graph = build_graph()

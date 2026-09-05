@@ -24,6 +24,17 @@ export type Evidence = {
   billing_while_stopped: boolean;
 };
 
+export type GitHubEvidence = {
+  repo: string | null;
+  latest_commit_at: string | null;
+  pr_number: number | null;
+  pr_status: string | null;
+  branch: string | null;
+  branch_exists: boolean | null;
+  last_workflow_run_at: string | null;
+  scheduled_workflow_exists: boolean | null;
+};
+
 export type Recommendation = {
   action: "keep" | "investigate_more" | "stop" | "retire";
   reason: string;
@@ -107,6 +118,7 @@ export type Investigation = {
   thread_id: string;
   resource: Resource;
   evidence: Evidence | null;
+  github: GitHubEvidence | null;
   recommendation: Recommendation | null;
   plan: Plan | null;
   awaiting_approval: boolean;

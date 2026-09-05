@@ -25,6 +25,7 @@ Facts that matter:
 
 A deterministic rules engine, which sees the same evidence, proposes: {prior}
 Agree with it unless the evidence gives you a specific reason not to.
+{memory}
 
 Resource:
 {resource}
@@ -42,6 +43,41 @@ Answer in one or two sentences, citing the numbers you used.
 def _model():
     from langchain_groq import ChatGroq
     return ChatGroq(model=GROQ_MODEL, temperature=0)
+
+
+def _memory_note(resource_id: str) -> str:
+    """What we already concluded about this resource, phrased for the prompt.
+
+    A human who kept something once should not be asked the same question every
+    week, so a past decision is stated plainly and the model is told to weigh it.
+    """
+    from cloudcleaner.storage.repository import recall
+
+    memory = recall(resource_id)
+    if not memory:
+        return ""
+
+    lines = [f"\nYou have looked at this resource {memory['times_seen']} time(s) before."]
+
+    if memory.get("human_decision") == "keep":
+        lines.append(
+            f"A human explicitly chose to KEEP it on {memory['human_decided_at']}. "
+            "Do not recommend retiring it again unless the evidence has changed since then "
+            "- say what changed if you do."
+        )
+    elif memory.get("human_decision") == "approve":
+        lines.append("A human previously approved action on this resource.")
+
+    if memory.get("last_verdict"):
+        lines.append(f"Your last verdict was '{memory['last_verdict']}': {memory['last_reason']}")
+
+    if (memory.get("times_kept") or 0) >= 2:
+        lines.append(
+            f"It has been kept {memory['times_kept']} times. Repeatedly re-proposing a "
+            "retirement that keeps getting refused wastes the reviewer's attention."
+        )
+
+    return "\n".join(lines)
 
 
 def assess_node(state: CloudCleanerState):
@@ -62,8 +98,13 @@ def assess_node(state: CloudCleanerState):
 
     prior = rules_only_verdict(resource, aws)
 
+    memory = _memory_note(resource.resource_id)
+    if memory:
+        log.emit("assess", "check", resource.resource_id, "recalled prior decisions")
+
     prompt = PROMPT.format(
         prior=f"{prior.action} - {prior.reason}",
+        memory=memory,
         resource=resource.model_dump_json(indent=2),
         aws=aws.model_dump_json(indent=2),
         github=github.model_dump_json(indent=2),

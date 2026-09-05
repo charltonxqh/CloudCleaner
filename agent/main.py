@@ -88,6 +88,7 @@ async def investigate(req: InvestigateRequest):
         "thread_id": thread_id,
         "resource": resource.model_dump(),
         "evidence": result["aws_evidence"].model_dump() if result.get("aws_evidence") else None,
+        "github": result["github_evidence"].model_dump() if result.get("github_evidence") else None,
         "recommendation": rec.model_dump() if rec else None,
         "plan": plan.model_dump() if plan else None,
         "awaiting_approval": bool(pending),
