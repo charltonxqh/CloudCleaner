@@ -38,9 +38,25 @@ def list_volumes(only_unattached: bool = False) -> list[CloudResource]:
     return out
 
 
+def _snapshots_backing_images(ec2) -> dict[str, list[str]]:
+    """AWS refuses to delete a snapshot an AMI still references. Map it up front."""
+    backing: dict[str, list[str]] = {}
+    for image in ec2.describe_images(Owners=["self"]).get("Images", []):
+        for mapping in image.get("BlockDeviceMappings") or []:
+            snap = (mapping.get("Ebs") or {}).get("SnapshotId")
+            if snap:
+                backing.setdefault(snap, []).append(image["ImageId"])
+    return backing
+
+
 def list_snapshots(owned_by_self: bool = True) -> list[CloudResource]:
     ec2 = get_ec2_client()
     kwargs = {"OwnerIds": ["self"]} if owned_by_self else {}
+
+    try:
+        backing = _snapshots_backing_images(ec2)
+    except Exception:
+        backing = {}
 
     out = []
     for page in ec2.get_paginator("describe_snapshots").paginate(**kwargs):
@@ -58,6 +74,7 @@ def list_snapshots(owned_by_self: bool = True) -> list[CloudResource]:
                 project=tags.get("Project"),
                 environment=tags.get("Environment"),
                 owner=tags.get("Owner"),
+                image_ids=backing.get(snap["SnapshotId"], []),
                 estimated_monthly_cost=snapshot_cost(snap["VolumeSize"]),
                 billing_while_stopped=True,
                 tags=tags,

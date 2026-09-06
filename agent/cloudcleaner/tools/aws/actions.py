@@ -265,6 +265,109 @@ def delete_snapshot(snapshot_id: str, dry_run: bool = True) -> ActionResult:
     return _result("delete_snapshot", snapshot_id, True, "deleted")
 
 
+def delete_route(
+    route_table_id: str, cidr: str = "0.0.0.0/0", dry_run: bool = True
+) -> ActionResult:
+    if dry_run:
+        return _result("delete_route", route_table_id, True, "dry run", True)
+    _ec2_client(settings.AWS_REGION).delete_route(
+        RouteTableId=route_table_id, DestinationCidrBlock=cidr
+    )
+    return _result("delete_route", route_table_id, True, f"removed {cidr}")
+
+
+def delete_nat_gateway(nat_gateway_id: str, dry_run: bool = True) -> ActionResult:
+    if dry_run:
+        return _result("delete_nat_gateway", nat_gateway_id, True, "dry run", True)
+    _ec2_client(settings.AWS_REGION).delete_nat_gateway(NatGatewayId=nat_gateway_id)
+    return _result("delete_nat_gateway", nat_gateway_id, True, "deleting")
+
+
+def deregister_image(image_id: str, dry_run: bool = True) -> ActionResult:
+    if dry_run:
+        return _result("deregister_image", image_id, True, "dry run", True)
+    _ec2_client(settings.AWS_REGION).deregister_image(ImageId=image_id)
+    return _result("deregister_image", image_id, True, "deregistered")
+
+
+def _elbv2():
+    return boto3.client("elbv2", region_name=settings.AWS_REGION)
+
+
+def delete_listener(listener_arn: str, dry_run: bool = True) -> ActionResult:
+    if dry_run:
+        return _result("delete_listener", listener_arn, True, "dry run", True)
+    _elbv2().delete_listener(ListenerArn=listener_arn)
+    return _result("delete_listener", listener_arn, True, "deleted")
+
+
+def delete_load_balancer(lb_arn: str, dry_run: bool = True) -> ActionResult:
+    if dry_run:
+        return _result("delete_load_balancer", lb_arn, True, "dry run", True)
+    _elbv2().delete_load_balancer(LoadBalancerArn=lb_arn)
+    return _result("delete_load_balancer", lb_arn, True, "deleted")
+
+
+def delete_target_group(tg_arn: str, dry_run: bool = True) -> ActionResult:
+    if dry_run:
+        return _result("delete_target_group", tg_arn, True, "dry run", True)
+    _elbv2().delete_target_group(TargetGroupArn=tg_arn)
+    return _result("delete_target_group", tg_arn, True, "deleted")
+
+
+def _rds():
+    return boto3.client("rds", region_name=settings.AWS_REGION)
+
+
+def disable_deletion_protection(db_id: str, dry_run: bool = True) -> ActionResult:
+    if dry_run:
+        return _result("disable_deletion_protection", db_id, True, "dry run", True)
+    _rds().modify_db_instance(
+        DBInstanceIdentifier=db_id, DeletionProtection=False, ApplyImmediately=True
+    )
+    return _result("disable_deletion_protection", db_id, True, "disabled")
+
+
+def snapshot_database(db_id: str, dry_run: bool = True) -> ActionResult:
+    snapshot_id = f"cloudcleaner-{db_id}"
+    if dry_run:
+        return _result("snapshot_database", db_id, True, "dry run", True)
+    resp = _rds().create_db_snapshot(
+        DBInstanceIdentifier=db_id, DBSnapshotIdentifier=snapshot_id
+    )
+    return _result("snapshot_database", db_id, True, resp["DBSnapshot"]["DBSnapshotIdentifier"])
+
+
+def delete_db_instance(db_id: str, dry_run: bool = True) -> ActionResult:
+    """The final snapshot is taken as its own prior step, so it is skipped here."""
+    if dry_run:
+        return _result("delete_db_instance", db_id, True, "dry run", True)
+    _rds().delete_db_instance(
+        DBInstanceIdentifier=db_id, SkipFinalSnapshot=True, DeleteAutomatedBackups=False
+    )
+    return _result("delete_db_instance", db_id, True, "deleting")
+
+
+def _elasticache():
+    return boto3.client("elasticache", region_name=settings.AWS_REGION)
+
+
+def snapshot_cache(cluster_id: str, dry_run: bool = True) -> ActionResult:
+    if dry_run:
+        return _result("snapshot_cache", cluster_id, True, "dry run", True)
+    resp = _elasticache().create_snapshot(
+        CacheClusterId=cluster_id, SnapshotName=f"cloudcleaner-{cluster_id}"
+    )
+    return _result("snapshot_cache", cluster_id, True, resp["Snapshot"]["SnapshotName"])
+
+
+def delete_cache_cluster(cluster_id: str, dry_run: bool = True) -> ActionResult:
+    if dry_run:
+        return _result("delete_cache_cluster", cluster_id, True, "dry run", True)
+    _elasticache().delete_cache_cluster(CacheClusterId=cluster_id)
+    return _result("delete_cache_cluster", cluster_id, True, "deleting")
+
+
 ACTIONS = {
     "stop_instance": stop_instance,
     "terminate_instance": terminate_instance,
@@ -273,4 +376,15 @@ ACTIONS = {
     "disassociate_address": disassociate_address,
     "release_address": release_address,
     "delete_snapshot": delete_snapshot,
+    "delete_route": delete_route,
+    "delete_nat_gateway": delete_nat_gateway,
+    "deregister_image": deregister_image,
+    "delete_listener": delete_listener,
+    "delete_load_balancer": delete_load_balancer,
+    "delete_target_group": delete_target_group,
+    "disable_deletion_protection": disable_deletion_protection,
+    "snapshot_database": snapshot_database,
+    "delete_db_instance": delete_db_instance,
+    "snapshot_cache": snapshot_cache,
+    "delete_cache_cluster": delete_cache_cluster,
 }

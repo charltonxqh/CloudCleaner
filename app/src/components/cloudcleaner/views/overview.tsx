@@ -5,6 +5,8 @@ import { Empty, Tag, type Tone } from "../primitives";
 
 const TYPE_LABEL: Record<string, string> = {
   ec2: "EC2 instances", ebs: "EBS volumes", eip: "Elastic IPs", snapshot: "Snapshots",
+  nat: "NAT gateways", elb: "Load balancers", rds: "RDS databases",
+  cache: "ElastiCache",
 };
 
 const VERDICT_TONE: Record<string, Tone> = {

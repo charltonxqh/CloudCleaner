@@ -142,12 +142,27 @@ pip install 'cloudcleaner-agent[all]'       # plus OpenAI, Anthropic, LangSmith
 
 ## Coverage
 
-**Today:** EC2 instances, EBS volumes, Elastic IPs, snapshots. CloudWatch usage,
-cost attribution, and GitHub signals — last commit, branch existence, PR status,
-CI runs — so the agent can tell whether the project that owns a resource is
-still alive.
+Eight resource types, each judged by the metric AWS actually publishes for it.
+CPU is the EC2 signal and only the EC2 signal — a NAT gateway has no CPU, and
+reading its absence as "idle" would be a confident recommendation to delete
+something in use.
 
-**Not yet:** RDS, NAT gateways, load balancers, ElastiCache, multi-account.
+| Type | Idle signal | Why it is missed |
+|---|---|---|
+| EC2 instance | `CPUUtilization` | Stopping leaves storage and the IP billing |
+| EBS volume | none published | Survives its instance when `DeleteOnTermination=false` |
+| Elastic IP | association state | Billed hourly precisely *because* it is unused |
+| Snapshot | age | No metrics at all; an AMI can pin it in place |
+| NAT gateway | `BytesOutToDestination` | ~$32.85/mo, and it has no stopped state |
+| Load balancer | `RequestCount` / `ActiveFlowCount` | Base rate charged with zero targets |
+| RDS instance | `DatabaseConnections` | Stopped still bills storage — and AWS restarts it after 7 days |
+| ElastiCache | `CurrConnections` | No stopped state; bills until deleted |
+
+Alongside these: cost attribution and GitHub signals — last commit, branch
+existence, PR status, CI runs — so the agent can tell whether the project that
+owns a resource is still alive.
+
+**Not yet:** EKS, multi-account, multi-region.
 
 ## Requirements
 

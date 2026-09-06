@@ -33,6 +33,82 @@ def list_elastic_ips():
     return fn()
 
 
+def list_nat_gateways():
+    if _fixture():
+        from cloudcleaner.fixtures.demo import list_nat_gateways as fn
+    else:
+        from cloudcleaner.tools.aws.gateways import list_nat_gateways as fn
+    return fn()
+
+
+def list_load_balancers():
+    if _fixture():
+        from cloudcleaner.fixtures.demo import list_load_balancers as fn
+    else:
+        from cloudcleaner.tools.aws.loadbalancers import list_load_balancers as fn
+    return fn()
+
+
+def list_rds_instances():
+    if _fixture():
+        from cloudcleaner.fixtures.demo import list_rds_instances as fn
+    else:
+        from cloudcleaner.tools.aws.databases import list_rds_instances as fn
+    return fn()
+
+
+def list_cache_clusters():
+    if _fixture():
+        from cloudcleaner.fixtures.demo import list_cache_clusters as fn
+    else:
+        from cloudcleaner.tools.aws.caches import list_cache_clusters as fn
+    return fn()
+
+
+def list_snapshots(owned_by_self: bool = True):
+    if _fixture():
+        from cloudcleaner.fixtures.demo import list_snapshots as fn
+    else:
+        from cloudcleaner.tools.aws.volumes import list_snapshots as fn
+    return fn(owned_by_self)
+
+
+def healthy_target_count(target_group_arns: list[str]) -> int:
+    if _fixture():
+        from cloudcleaner.fixtures.demo import healthy_target_count as fn
+    else:
+        from cloudcleaner.tools.aws.loadbalancers import healthy_target_count as fn
+    return fn(target_group_arns)
+
+
+def get_usage_evidence(resource, days: int | None = None):
+    """Dispatch to the idle signal that means something for this resource type."""
+    from cloudcleaner.config import METRIC_WINDOW_DAYS
+    from cloudcleaner.schemas import AWSEvidence
+
+    days = days or METRIC_WINDOW_DAYS
+    rid = resource.resource_id
+
+    if resource.resource_type == "ec2":
+        return get_ec2_usage_evidence(rid, days)
+
+    module = "cloudcleaner.fixtures.demo" if _fixture() else "cloudcleaner.tools.aws.metrics"
+    mod = __import__(module, fromlist=["x"])
+
+    if resource.resource_type == "nat":
+        return mod.get_nat_usage_evidence(rid, days)
+    if resource.resource_type == "elb":
+        return mod.get_elb_usage_evidence(rid, resource.instance_type, days)
+    if resource.resource_type == "rds":
+        return mod.get_rds_usage_evidence(rid, days)
+    if resource.resource_type == "cache":
+        return mod.get_cache_usage_evidence(rid, days)
+
+    # EBS volumes, Elastic IPs and snapshots publish no usage metrics at all.
+    # Absence of data is not evidence of idleness, so nothing is inferred here.
+    return AWSEvidence(idle_days=resource.idle_days)
+
+
 def get_ec2_usage_evidence(instance_id: str, days: int | None = None):
     from cloudcleaner.config import METRIC_WINDOW_DAYS
     days = days or METRIC_WINDOW_DAYS

@@ -23,8 +23,19 @@ on clear-cut waste is a wrong answer, not a cautious one.
 Facts that matter:
 - A stopped instance is NOT free. Attached EBS volumes and public IPv4 addresses keep billing.
 - An unattached EBS volume or an unassociated Elastic IP has no function at all. It is pure waste.
-- Absent CloudWatch metrics for a volume or an address is normal, not suspicious. Those
-  resources do not emit CPU metrics.
+- Absent CloudWatch metrics for a volume, an address or a snapshot is normal, not suspicious.
+  Those resources do not emit CPU metrics.
+- CPU is the EC2 signal and only the EC2 signal. Judge every other type by the metric named
+  in metric_source, which is the one AWS actually publishes for it:
+    NAT gateway    BytesOutToDestination. It has no stopped state; it bills until deleted.
+    Load balancer  RequestCount (or ActiveFlowCount). The hourly base rate is charged even
+                   with zero requests and zero healthy targets.
+    RDS instance   DatabaseConnections. A STOPPED database still bills for its allocated
+                   storage, and AWS restarts it automatically 7 days after it was stopped,
+                   so "stopped" is a bill with a timer on it, not a saving.
+    ElastiCache    CurrConnections. There is no stopped state; it bills until deleted.
+- A snapshot that backs an AMI cannot be deleted until that image is deregistered. Say so
+  rather than recommending a delete that AWS would refuse.
 
 A deterministic rules engine, which sees the same evidence, proposes: {prior}
 Agree with it unless the evidence gives you a specific reason not to.

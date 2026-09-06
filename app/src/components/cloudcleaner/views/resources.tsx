@@ -7,6 +7,7 @@ import { Empty, Tag, type Tone } from "../primitives";
 
 const TYPE_LABEL: Record<string, string> = {
   ec2: "EC2", ebs: "EBS", eip: "EIP", snapshot: "SNAP",
+  nat: "NAT", elb: "ELB", rds: "RDS", cache: "CACHE",
 };
 
 /** Type gets its own colour and 7x7 glyph, so a long list can be scanned by
@@ -29,6 +30,27 @@ const TYPE_STYLE: Record<string, { fg: string; bg: string; px: [number, number][
   snapshot: {
     fg: "#b9a3ff", bg: "rgb(185 163 255 / 0.12)",
     px: [[1,1],[2,1],[3,1],[4,1],[5,1],[1,2],[3,2],[5,2],[1,3],[5,3],[1,4],[2,4],[3,4],[4,4],[5,4]],
+  },
+  // Traffic passing straight through: a NAT gateway is a road, not a machine.
+  nat: {
+    fg: "#ffb27f", bg: "rgb(255 178 127 / 0.12)",
+    px: [[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[1,2],[1,4],[5,2],[5,4]],
+  },
+  // One source fanning out to three targets.
+  elb: {
+    fg: "var(--pink-on-dark)", bg: "rgb(255 157 192 / 0.12)",
+    px: [[3,0],[3,1],[1,2],[2,2],[3,2],[4,2],[5,2],[1,3],[3,3],[5,3],[1,4],[3,4],[5,4]],
+  },
+  // Stacked platters, to read as a database rather than a plain disk.
+  rds: {
+    fg: "#7fd8ff", bg: "rgb(127 216 255 / 0.12)",
+    px: [[2,0],[3,0],[4,0],[1,1],[5,1],[2,2],[3,2],[4,2],[1,3],[5,3],[2,4],[3,4],[4,4],[1,5],[5,5],
+         [2,6],[3,6],[4,6]],
+  },
+  // A bolt: the cache exists for speed.
+  cache: {
+    fg: "#cdf07a", bg: "rgb(205 240 122 / 0.12)",
+    px: [[4,0],[3,1],[4,1],[2,2],[3,2],[1,3],[2,3],[3,3],[4,3],[5,3],[3,4],[4,4],[2,5],[3,5],[2,6]],
   },
 };
 
@@ -56,17 +78,23 @@ const VERDICT_TONE: Record<string, Tone> = {
   keep: "ok", investigate_more: "warn", stop: "warn", retire: "danger",
 };
 
-type Filter = "all" | "wasting" | "ec2" | "orphans";
+type Filter = "all" | "wasting" | "unpausable" | "orphans" | "ec2";
+
+/** Types with no stopped state at all. Nothing to pause, so the only lever is
+ *  deleting them - which is exactly why they are the ones people forget. */
+const UNPAUSABLE = new Set(["nat", "elb", "cache", "snapshot"]);
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "wasting", label: "Billing while stopped" },
+  { id: "unpausable", label: "Cannot be paused" },
   { id: "orphans", label: "Orphans" },
   { id: "ec2", label: "Instances" },
 ];
 
 function matches(r: Resource, f: Filter) {
   if (f === "wasting") return r.billing_while_stopped;
+  if (f === "unpausable") return UNPAUSABLE.has(r.resource_type);
   if (f === "ec2") return r.resource_type === "ec2";
   if (f === "orphans") return r.attached_to === null && r.resource_type !== "ec2";
   return true;

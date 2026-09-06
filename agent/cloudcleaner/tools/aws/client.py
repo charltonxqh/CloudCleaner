@@ -20,3 +20,15 @@ def get_cloudwatch_client():
 
 def get_sts_client():
     return _client("sts")
+
+
+def get_elbv2_client():
+    return _client("elbv2")
+
+
+def get_rds_client():
+    return _client("rds")
+
+
+def get_elasticache_client():
+    return _client("elasticache")

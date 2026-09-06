@@ -39,6 +39,19 @@ class CloudResource(BaseModel):
     volume_ids: list[str] = Field(default_factory=list)
     public_ip: str | None = None
 
+    # Networked types: what the resource sits in, and what it owns or is wired to.
+    vpc_id: str | None = None
+    subnet_id: str | None = None
+    engine: str | None = None
+    node_count: int = 1
+    multi_az: bool = False
+    deletion_protection: bool = False
+    address_ids: list[str] = Field(default_factory=list)
+    route_table_ids: list[str] = Field(default_factory=list)
+    listener_ids: list[str] = Field(default_factory=list)
+    target_group_ids: list[str] = Field(default_factory=list)
+    image_ids: list[str] = Field(default_factory=list)
+
     idle_days: int | None = None
     estimated_monthly_cost: float | None = None
     monthly_cost_if_stopped: float | None = None
@@ -57,6 +70,13 @@ class AWSEvidence(BaseModel):
     network_out_bytes: float | None = None
     estimated_monthly_cost: float | None = None
     billing_while_stopped: bool = False
+
+    # Non-EC2 idle signals. CPU is meaningless for a NAT gateway or a balancer,
+    # so each type reports the metric that actually indicates use.
+    metric_source: str | None = None
+    connection_count: float | None = None
+    request_count: float | None = None
+    bytes_processed: float | None = None
 
 
 class GitHubEvidence(BaseModel):
