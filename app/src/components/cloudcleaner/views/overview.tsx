@@ -58,7 +58,22 @@ function BigStat({
   const wordy = String(value).includes(" ");
   return (
     <div className="pixel-shadow min-w-[228px] flex-1">
-      <div className="pixel-card h-full px-6 py-5" style={{ background: c.bg, color: c.fg }}>
+      <div
+        className="pixel-card h-full px-6 py-5"
+        style={{
+          // A diagonal sheen over the flat pastel: white at the top-left, a
+          // touch of the card's own ink at the bottom-right, so it reads as a
+          // lit surface without changing the colour it is identified by.
+            // c.fg is a var(), so a hex alpha cannot be appended to it — that
+            // invalidates the whole shorthand and the card loses its fill. A black
+            // wash darkens the far corner without needing the ink colour.
+            background:
+              "linear-gradient(145deg, rgb(255 255 255 / 0.8) 0%, rgb(255 255 255 / 0.18) 44%, transparent 70%), " +
+              "linear-gradient(145deg, transparent 58%, rgb(0 0 0 / 0.12) 100%), " +
+              c.bg,
+          color: c.fg,
+        }}
+      >
         <div className="flex items-start justify-between gap-3">
           <div
             className="label font-bold leading-tight"
