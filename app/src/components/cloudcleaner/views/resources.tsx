@@ -42,7 +42,7 @@ function TypeBadge({ type }: { type: string }) {
       className="pixel-sm mono inline-flex items-center gap-1.5 px-1.5 py-[3px] text-[11px] font-semibold"
       style={{ color: s.fg, background: s.bg }}
     >
-      <svg viewBox="0 0 7 7" width="11" height="11" shape-rendering="crispEdges" aria-hidden="true">
+      <svg viewBox="0 0 7 7" width="11" height="11" shapeRendering="crispEdges" aria-hidden="true">
         {s.px.map(([x, y]) => (
           <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" fill="currentColor" />
         ))}
