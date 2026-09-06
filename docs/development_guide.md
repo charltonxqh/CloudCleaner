@@ -69,7 +69,7 @@ CloudCleaner/
 |---|---|---|
 | Frontend / UI | `app/src/src/` | React / Next.js pages, components, dashboard, agent UI |
 | Agent orchestration / LangGraph | `agent/cloudcleaner/graph/` | LangGraph state, nodes, edges, routing, workflow control |
-| AWS integration | `agent/cloudcleaner/tools/aws/` | Boto3 tools for EC2, EBS, Elastic IP, CloudWatch, cost, actions |
+| AWS integration | `agent/cloudcleaner/tools/aws/` | Boto3 tools for EC2, EBS, Elastic IP, snapshots, NAT gateways, load balancers, RDS, ElastiCache, CloudWatch, cost, actions |
 | GitHub + CI/CD integration | `agent/cloudcleaner/tools/github/` | Pull requests, branches, GitHub Actions / CI-CD evidence |
 | Slack integration | `agent/cloudcleaner/tools/slack/` | Approval messages, Slack interactions, human-in-the-loop actions |
 | Evidence package | `agent/cloudcleaner/evidence/` | Collect, combine, and format evidence from AWS / GitHub / CI-CD |
