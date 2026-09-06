@@ -9,8 +9,7 @@
     "dev:ui": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "install:agent": "cd ../agent && uv sync",
-    "postinstall": "npm run install:agent"
+    "install:agent": "cd ../agent && uv sync"
   },
   "dependencies": {
     "@copilotkit/a2ui-renderer": "1.70.0",
