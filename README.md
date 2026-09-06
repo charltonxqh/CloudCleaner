@@ -72,12 +72,7 @@ Deliberate safety stance already visible in the code: the model is **forbidden f
 
 **Biggest structural gap:** the frontend is still the **CopilotKit starter demo**. `agent/main.py` serves `src.agent.graph` — a todo-list / flight-search / A2UI demo agent on `ChatOpenAI` — not `cloudcleaner.graph.graph`. Nothing in `app/src/src/` mentions CloudCleaner. The agent and the UI are two disconnected projects right now.
 
-### 1.4 Two config bugs worth fixing now
-
-1. **`.env.example` uses lowercase AWS keys** (`aws_access_key_id=`). boto3 only reads `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_REGION` (uppercase). The dev guide has it right; the template does not.
-2. **`.env.example` is missing** `GITHUB_TOKEN`, `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, which the dev guide documents.
-
-### 1.5 Running it
+### 1.4 Running it
 
 ```bash
 # frontend + starter agent together
