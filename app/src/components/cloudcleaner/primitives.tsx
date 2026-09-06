@@ -7,13 +7,13 @@ export function Panel({
 }: { title?: string; right?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section
-      className={`flex min-h-0 flex-col ${className}`}
-      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+      className={`pixel-card flex min-h-0 flex-col ${className}`}
+      style={{ background: "var(--surface)" }}
     >
       {title && (
         <header
           className="flex h-9 shrink-0 items-center justify-between px-4"
-          style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-2)" }}
+          style={{ borderBottom: "1px solid var(--border)" }}
         >
           <h2 className="label">{title}</h2>
           {right}
@@ -25,11 +25,11 @@ export function Panel({
 }
 
 const TONE = {
-  danger: { fg: "var(--danger)", bg: "var(--danger-dim)" },
-  warn: { fg: "var(--warn)", bg: "var(--warn-dim)" },
-  ok: { fg: "var(--ok)", bg: "var(--ok-dim)" },
-  info: { fg: "var(--primary)", bg: "var(--primary-dim)" },
-  muted: { fg: "var(--fg-faint)", bg: "transparent" },
+  danger: { fg: "var(--pink-fg)", bg: "var(--pink)" },
+  warn: { fg: "var(--yellow-fg)", bg: "var(--yellow)" },
+  ok: { fg: "var(--green-fg)", bg: "var(--green)" },
+  info: { fg: "var(--blue-fg)", bg: "var(--blue)" },
+  muted: { fg: "var(--fg-muted)", bg: "var(--surface-2)" },
 } as const;
 
 export type Tone = keyof typeof TONE;
@@ -41,18 +41,13 @@ export function Tag({
   return (
     <span
       title={title}
-      className="mono inline-flex shrink-0 items-center gap-1.5 px-1.5 py-[2px] text-[10px] font-medium uppercase tracking-wide"
-      style={{
-        color: t.fg,
-        background: t.bg,
-        border: `1px solid ${tone === "muted" ? "var(--border-strong)" : t.fg}`,
-        borderRadius: 2,
-      }}
+      className="pixel-sm mono inline-flex shrink-0 items-center gap-1.5 px-2 py-[3px] text-[10px] font-semibold uppercase tracking-wide"
+      style={{ color: t.fg, background: t.bg }}
     >
       {dot && (
         <span
           aria-hidden="true"
-          className="h-1.5 w-1.5 rounded-full"
+          className="h-1.5 w-1.5"
           style={{ background: t.fg }}
         />
       )}
@@ -112,12 +107,12 @@ export function Button({
       border: "1px solid var(--border-strong)",
     },
     primary: {
-      background: "var(--primary)", color: "var(--on-primary)",
-      border: "1px solid var(--primary)",
+      background: "var(--btn)", color: "var(--btn-fg)",
+      border: "1px solid var(--btn)",
     },
     danger: {
-      background: "var(--danger)", color: "#fff",
-      border: "1px solid var(--danger)",
+      background: "var(--pink)", color: "var(--pink-fg)",
+      border: "1px solid var(--pink)",
     },
   }[variant];
 
@@ -127,13 +122,11 @@ export function Button({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="shrink-0 px-3 text-[12px] font-medium transition-all duration-150"
+      className="pixel-btn pixel-sm shrink-0 px-4 text-[12px] font-semibold"
       style={{
         ...styles,
-        borderRadius: "var(--radius)",
-        minHeight: 34,
+        minHeight: 36,
         opacity: disabled ? 0.4 : 1,
-        boxShadow: variant === "ghost" ? "none" : "var(--shadow)",
       }}
     >
       {children}

@@ -2,6 +2,18 @@
 
 import type { ReactNode } from "react";
 
+/** 24x24 pixel logo — see app/scripts/make_logo.py, which also emits the PNGs. */
+type P = [number, number];
+const L_CLOUD: P[] = [[4,9], [5,9], [3,10], [4,10], [5,10], [6,10], [9,10], [10,10], [2,11], [3,11], [4,11], [5,11], [6,11], [7,11], [8,11], [9,11], [10,11], [11,11], [1,12], [2,12], [3,12], [4,12], [5,12], [6,12], [7,12], [8,12], [9,12], [10,12], [11,12], [12,12], [1,13], [2,13], [3,13], [4,13], [5,13], [6,13], [7,13], [8,13], [9,13], [10,13], [11,13], [12,13], [2,14], [3,14], [4,14], [5,14], [6,14], [7,14], [8,14], [9,14], [10,14], [11,14]];
+const L_SHINE: P[] = [[3,11], [4,10]];
+const L_HANDLE: P[] = [[21,3], [21,4], [21,5], [20,6], [20,7], [19,8], [19,9], [18,10]];
+const L_BAND: P[] = [[17,11], [18,11], [19,11]];
+const L_STRAW: P[] = [[16,12], [17,12], [18,12], [19,12], [20,12], [15,13], [16,13], [17,13], [18,13], [19,13], [20,13], [21,13], [15,14], [16,14], [17,14], [18,14], [19,14], [20,14], [21,14], [15,15], [17,15], [19,15], [21,15]];
+const L_MOTES: P[] = [[6,18], [10,19], [13,18], [16,17]];
+/** Tight box around the ink. Padding inside the viewBox would push the visible
+ *  glyph off-centre even when the element itself is centred. */
+const L_BOX = "1 3 21 17";
+
 export type ViewId = "overview" | "resources" | "history" | "evaluation";
 
 const NAV: { id: ViewId; label: string; icon: ReactNode }[] = [
@@ -54,28 +66,49 @@ export function Sidebar({
     <nav
       aria-label="Sections"
       className="flex shrink-0 gap-1 overflow-x-auto px-2 py-2 lg:w-[210px] lg:flex-col lg:overflow-visible lg:px-3 lg:py-4"
-      style={{ background: "var(--surface)", borderRight: "1px solid var(--border)" }}
+      style={{ background: "var(--nav)", color: "var(--nav-fg)" }}
     >
       <div
-        className="mb-3 hidden items-center gap-3 px-2 pb-4 lg:flex"
-        style={{ borderBottom: "1px solid var(--border)" }}
+        className="mb-4 hidden flex-col items-center gap-1 px-2 pb-5 text-center lg:flex"
+        style={{ borderBottom: "1px solid var(--nav-2)" }}
       >
-        <span
-          aria-hidden="true"
-          className="grid h-8 w-8 shrink-0 place-items-center text-[14px] font-bold"
-          style={{
-            background: "var(--primary)",
-            color: "var(--on-primary)",
-            borderRadius: "var(--radius)",
-            boxShadow: "var(--shadow)",
-          }}
+        <svg
+          viewBox={L_BOX}
+          className="h-[86px] w-[112px] shrink-0"
+          shape-rendering="crispEdges"
+          role="img"
+          aria-label="CloudCleaner"
+          style={{ color: "var(--nav-fg)" }}
         >
-          C
-        </span>
+          <title>CloudCleaner</title>
+          {L_CLOUD.map(([x, y]) => (
+            <rect key={`c${x}-${y}`} x={x} y={y} width="1" height="1" fill="currentColor" />
+          ))}
+          {L_SHINE.map(([x, y]) => (
+            <rect key={`s${x}-${y}`} x={x} y={y} width="1" height="1" fill="#c9cdd4" />
+          ))}
+          {L_HANDLE.map(([x, y]) => (
+            <rect key={`h${x}-${y}`} x={x} y={y} width="1" height="1" fill="#c08b4e" />
+          ))}
+          {L_BAND.map(([x, y]) => (
+            <rect key={`b${x}-${y}`} x={x} y={y} width="1" height="1" fill="#8a5f2e" />
+          ))}
+          {L_STRAW.map(([x, y]) => (
+            <rect key={`w${x}-${y}`} x={x} y={y} width="1" height="1" fill="#f0cf5a" />
+          ))}
+          {L_MOTES.map(([x, y]) => (
+            <rect key={`m${x}-${y}`} x={x} y={y} width="1" height="1"
+                  fill="currentColor" opacity=".45" />
+          ))}
+        </svg>
         <div className="min-w-0">
-          <div className="truncate text-[15px] font-semibold leading-tight">CloudCleaner</div>
-          <div className="mt-0.5 truncate text-[11px] leading-tight" style={{ color: "var(--fg-faint)" }}>
-            us-east-1
+          <div className="pixel-type text-[26px] leading-tight"
+               style={{ color: "var(--nav-fg)" }}>
+            CloudCleaner
+          </div>
+          <div className="mt-1 text-[11.5px] leading-snug"
+               style={{ color: "var(--nav-fg-muted)" }}>
+            AWS lifecycle agent · us-east-1
           </div>
         </div>
       </div>
@@ -87,12 +120,12 @@ export function Sidebar({
             key={item.id}
             onClick={() => onNavigate(item.id)}
             aria-current={active ? "page" : undefined}
-            className="flex shrink-0 items-center gap-3 px-3 text-[14px] transition-colors duration-150"
+            className={`${active ? "pixel-sm" : ""} flex shrink-0 items-center gap-3 px-3 text-[14px] transition-colors duration-150`}
             style={{
               minHeight: 42,
-              borderRadius: "var(--radius)",
-              background: active ? "var(--primary-dim)" : "transparent",
-              color: active ? "var(--primary)" : "var(--fg-muted)",
+              borderRadius: active ? 0 : "var(--radius)",
+              background: active ? "var(--nav-2)" : "transparent",
+              color: active ? "var(--nav-fg)" : "var(--nav-fg-muted)",
               fontWeight: active ? 600 : 400,
             }}
           >
@@ -103,8 +136,8 @@ export function Sidebar({
               <span
                 className="num ml-auto hidden px-2 py-0.5 text-[11px] lg:inline"
                 style={{
-                  background: "var(--surface-3)",
-                  color: "var(--fg-faint)",
+                  background: "rgb(255 255 255 / 0.1)",
+                  color: "var(--nav-fg-muted)",
                   borderRadius: 999,
                 }}
               >
@@ -123,13 +156,13 @@ export function ViewHeader({
 }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
     <header
-      className="flex shrink-0 flex-wrap items-center justify-between gap-4 px-6 py-4"
-      style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}
+      className="flex shrink-0 flex-wrap items-center justify-between gap-4 px-6 pb-4 pt-5"
+      style={{ background: "var(--bg)" }}
     >
       <div className="min-w-0">
-        <h1 className="text-[19px] font-semibold leading-tight tracking-tight">{title}</h1>
+        <h1 className="pixel-type truncate text-[34px] leading-tight">{title}</h1>
         {subtitle && (
-          <p className="mt-1 text-[13px] leading-tight" style={{ color: "var(--fg-faint)" }}>
+          <p className="mt-1 text-[14px] leading-snug" style={{ color: "var(--fg-muted)" }}>
             {subtitle}
           </p>
         )}

@@ -9,57 +9,77 @@ function percent(value: number | null) {
   return value === null ? "Not captured" : `${Math.round(value * 100)}%`;
 }
 
+/** Each metric takes its own cosmic accent, so a wall of identical cards reads
+ *  as six distinct measures rather than one repeated block. */
+const ACCENTS = [
+  { line: "var(--green-on-dark)", wash: "rgb(103 227 196 / 0.07)" },
+  { line: "var(--blue-on-dark)", wash: "rgb(144 170 255 / 0.07)" },
+  { line: "var(--yellow-on-dark)", wash: "rgb(255 215 110 / 0.07)" },
+  { line: "var(--pink-on-dark)", wash: "rgb(255 157 192 / 0.07)" },
+  { line: "#b9a3ff", wash: "rgb(185 163 255 / 0.07)" },
+  { line: "#7fd8ff", wash: "rgb(127 216 255 / 0.07)" },
+];
+
 function EvaluationCard({
   label,
   value,
   description,
   sample,
   tone,
+  index = 0,
 }: {
   label: string;
   value: string;
   description: string;
   sample?: string;
   tone?: string;
+  index?: number;
 }) {
+  const accent = ACCENTS[index % ACCENTS.length];
+  // A metric with nothing behind it should look dormant, not merely quiet.
+  const captured = !/not captured/i.test(value);
+
   return (
-    <div
-      className="min-h-[210px] px-6 py-6"
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius)",
-      }}
-    >
+    <div className="pixel-shadow h-full">
       <div
-        className="text-[14px] font-semibold uppercase tracking-[0.06em]"
-        style={{ color: "var(--fg-muted)" }}
+        className="pixel-card flex h-full min-h-[214px] flex-col px-6 py-5"
+        style={{
+          background: captured
+            ? `linear-gradient(180deg, ${accent.wash}, transparent 60%), var(--surface)`
+            : "var(--surface)",
+          borderTop: `3px solid ${captured ? accent.line : "var(--border-strong)"}`,
+        }}
       >
-        {label}
-      </div>
-
-      <div
-        className="num mt-4 text-[36px] font-semibold leading-none tracking-tight"
-        style={{ color: tone ?? "var(--fg)" }}
-      >
-        {value}
-      </div>
-
-      <p
-        className="mt-4 text-[14px] leading-relaxed"
-        style={{ color: "var(--fg-muted)" }}
-      >
-        {description}
-      </p>
-
-      {sample && (
-        <div
-          className="mt-4 text-[12px] leading-relaxed"
-          style={{ color: "var(--fg-faint)" }}
-        >
-          {sample}
+        <div className="label" style={{ color: captured ? accent.line : "var(--fg-faint)" }}>
+          {label}
         </div>
-      )}
+
+        <div
+          className={`${captured ? "num" : "pixel-type"} mt-3 leading-none tracking-tight`}
+          style={{
+            color: captured ? tone ?? accent.line : "var(--fg-faint)",
+            fontSize: captured ? 40 : 26,
+            fontWeight: captured ? 600 : undefined,
+          }}
+        >
+          {value}
+        </div>
+
+        <div className="pixel-rule mt-4" style={{ color: accent.line }} />
+
+        <p className="mt-3.5 text-[13.5px] leading-relaxed" style={{ color: "var(--fg-muted)" }}>
+          {description}
+        </p>
+
+        {sample && (
+          <div
+            className="mt-auto pt-4 text-[12px] leading-relaxed"
+            style={{ color: captured ? "var(--fg-faint)" : accent.line, opacity: captured ? 1 : 0.75 }}
+          >
+            {sample}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -79,7 +99,7 @@ export function EvaluationView({
   return (
     <div className="h-full overflow-auto p-6">
       <div className="mb-6">
-        <h2 className="text-[20px] font-semibold">
+        <h2 className="pixel-type text-[26px]">
           Agent performance
         </h2>
 
@@ -94,6 +114,7 @@ export function EvaluationView({
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <EvaluationCard
+          index={0}
           label="Recommendation accuracy"
           value={percent(evaluation?.recommendation_accuracy ?? null)}
           description="How often CloudCleaner chooses the correct KEEP, STOP, RETIRE, or INVESTIGATE MORE verdict against an independently labelled benchmark."
@@ -105,6 +126,7 @@ export function EvaluationView({
         />
 
         <EvaluationCard
+          index={1}
           label="LLM output success"
           value={percent(schemaRate)}
           description="How often the model successfully returns a valid structured recommendation without CloudCleaner falling back to deterministic rules."
@@ -123,6 +145,7 @@ export function EvaluationView({
         />
 
         <EvaluationCard
+          index={2}
           label="Token cost per run"
           value={
             evaluation?.avg_token_cost_usd === null ||
@@ -139,6 +162,7 @@ export function EvaluationView({
         />
 
         <EvaluationCard
+          index={3}
           label="Tool-call success rate"
           value={percent(evaluation?.tool_call_success_rate ?? null)}
           description="How often instrumented external operations such as evidence retrieval, AWS execution, and owner notification complete successfully."
@@ -157,6 +181,7 @@ export function EvaluationView({
         />
 
         <EvaluationCard
+          index={4}
           label="Teardown-plan correctness"
           value={percent(evaluation?.teardown_plan_correctness ?? null)}
           description="Whether retirement plans contain a valid dependency-safe action sequence and complete successfully when approved."
@@ -175,6 +200,7 @@ export function EvaluationView({
         />
 
         <EvaluationCard
+          index={5}
           label="Savings accuracy"
           value={percent(evaluation?.savings_accuracy ?? null)}
           description="How closely CloudCleaner's predicted monthly saving matches the independently calculable billed amount for the affected resource."

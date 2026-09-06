@@ -60,46 +60,57 @@ function outcome(r: Run) {
 
 function Summary({ totals }: { totals: HistoryTotals }) {
   const cards = [
-    { label: "Runs", value: String(totals.runs), sub: "recorded agent runs" },
-    { label: "Approved", value: String(totals.approved), sub: "human approvals" },
-    { label: "Kept", value: String(totals.kept), sub: "resources left untouched" },
     {
-      label: "Realised savings",
-      value: money(totals.realised_monthly),
-      tone: "var(--ok)",
-      sub: "actual monthly saving",
+      label: "Runs", value: String(totals.runs), sub: "recorded agent runs",
+      accent: "var(--blue-on-dark)", wash: "rgb(144 170 255 / 0.08)",
     },
     {
-      label: "Simulated savings",
-      value: money(totals.simulated_monthly),
-      tone: "var(--fg)",
-      sub: "dry-run saving only",
+      label: "Approved", value: String(totals.approved), sub: "human approvals",
+      accent: "#b9a3ff", wash: "rgb(185 163 255 / 0.08)",
+    },
+    {
+      label: "Kept", value: String(totals.kept), sub: "resources left untouched",
+      accent: "#7fd8ff", wash: "rgb(127 216 255 / 0.08)",
+    },
+    {
+      label: "Realised savings", value: money(totals.realised_monthly),
+      sub: "actually saved",
+      accent: "var(--green-on-dark)", wash: "rgb(103 227 196 / 0.08)",
+    },
+    {
+      // Dry-run savings are not money. They read as muted on purpose, so the
+      // two figures can never be mistaken for each other.
+      label: "Simulated savings", value: money(totals.simulated_monthly),
+      sub: "dry run only, not saved",
+      accent: "var(--yellow-on-dark)", wash: "rgb(255 215 110 / 0.08)",
     },
   ];
 
   return (
-    <div className="grid gap-3 px-5 py-4 sm:grid-cols-2 xl:grid-cols-5">
-      {cards.map((c) => (
-        <div
-          key={c.label}
-          className="px-4 py-4"
-          style={{
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius)",
-          }}
-        >
-          <div className="label text-[11px]">{c.label}</div>
-
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      {cards.map((c, i) => (
+        <div key={c.label} className="pixel-shadow rise" style={{ ["--i" as string]: i }}>
           <div
-            className="num mt-2 text-[25px] font-semibold leading-none"
-            style={{ color: c.tone ?? "var(--fg)" }}
+            className="pixel-card h-full px-4 py-4"
+            style={{
+              background: `linear-gradient(180deg, ${c.wash}, transparent 60%), var(--surface)`,
+              borderTop: `3px solid ${c.accent}`,
+            }}
           >
-            {c.value}
-          </div>
+            <div className="label text-[11px]" style={{ color: c.accent }}>{c.label}</div>
 
-          <div className="mt-2 text-[11px]" style={{ color: "var(--fg-faint)" }}>
-            {c.sub}
+            <div
+              className="num mt-2.5 text-[27px] font-semibold leading-none"
+              style={{ color: c.accent }}
+            >
+              {c.value}
+            </div>
+
+            <div className="pixel-rule mt-3" style={{ color: c.accent }} />
+
+            <div className="mt-2.5 text-[11px]" style={{ color: "var(--fg-faint)" }}>
+              {c.sub}
+            </div>
           </div>
         </div>
       ))}
@@ -141,17 +152,16 @@ export function HistoryView({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       {totals && <Summary totals={totals} />}
 
       {totals && totals.realised_monthly === 0 && totals.simulated_monthly > 0 && (
         <p
-          className="mx-5 mb-4 px-4 py-3 text-[12px] leading-relaxed"
+          className="pixel-sm px-4 py-3 text-[12px] leading-relaxed"
           style={{
             background: "var(--warn-dim)",
             color: "var(--warn)",
-            borderLeft: "2px solid var(--warn)",
-            borderRadius: "0 var(--radius) var(--radius) 0",
+            borderLeft: "3px solid var(--warn)",
           }}
         >
           Every execution so far was a dry run. {money(totals.simulated_monthly)}/mo is
@@ -161,7 +171,8 @@ export function HistoryView({
         </p>
       )}
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="pixel-card min-h-0 flex-1 overflow-auto"
+           style={{ background: "var(--surface)" }}>
         {!runs.length ? (
           <Empty>No runs recorded yet. Investigate a resource and its outcome lands here.</Empty>
         ) : (
