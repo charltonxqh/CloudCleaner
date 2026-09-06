@@ -43,6 +43,8 @@ const INVESTIGATION_CACHE_TTL_MS = 5 * 60 * 1000;
 type CachedInvestigation = {
   data: Investigation;
   cachedAt: number;
+  threadStatus?: ThreadStatus | null;
+  result?: ApprovalResult | null;
 };
 
 export default function Home() {
@@ -64,6 +66,8 @@ export default function Home() {
   const [cachedAt, setCachedAt] = useState<number | null>(null);
   const initialAnalysisStarted = useRef(false);
   const syncedThreads = useRef<Set<string>>(new Set());
+  const cacheRef = useRef<Record<string, CachedInvestigation>>({});
+  const selectedRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [verdicts, setVerdicts] = useState<Record<string, Recommendation["action"]>>({});
@@ -91,8 +95,10 @@ export default function Home() {
       }
 
       setError(null);
+      return inv.resources;
     } catch {
       setError("Cannot reach the agent on :8123. Start it with `npm run dev`.");
+      return [];
     }
   }, [cache]);
 
@@ -114,104 +120,138 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    cacheRef.current = cache;
+  }, [cache]);
+
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
+  useEffect(() => {
     if (initialAnalysisStarted.current) return;
     initialAnalysisStarted.current = true;
 
     void (async () => {
-      await Promise.all([load(), loadHistory()]);
-      await runSweep();
+      const [initialResources] = await Promise.all([load(), loadHistory()]);
+      await runInitialAnalysis(initialResources);
     })();
   }, [load, loadHistory]);
 
   useEffect(() => {
-    const threadId = investigation?.thread_id;
-
-    if (!threadId || !investigation.awaiting_approval) {
-      return;
-    }
-
     let cancelled = false;
-    let timer: number | undefined;
+    let polling = false;
 
-    async function poll() {
+    async function pollPendingThreads() {
+      if (polling || cancelled) return;
+      polling = true;
+
       try {
-        const status = await api.threadStatus(threadId!);
+        const entries = Object.entries(cacheRef.current).filter(
+          ([, cached]) =>
+            cached.data.awaiting_approval &&
+            Date.now() - cached.cachedAt < INVESTIGATION_CACHE_TTL_MS
+        );
 
-        if (cancelled) return;
+        await Promise.all(
+          entries.map(async ([resourceId, cached]) => {
+            const threadId = cached.data.thread_id;
 
-        setThreadStatus(status);
+            try {
+              const status = await api.threadStatus(threadId);
 
-        const finished =
-          !status.awaiting_approval &&
-          (status.phase === "completed" ||
-            status.phase === "error" ||
-            status.decision === "approve" ||
-            status.decision === "reject");
+              if (cancelled) return;
 
-        if (finished) {
-          setInvestigation((current) => {
-            if (!current || current.thread_id !== threadId) {
-              return current;
+              const finished =
+                !status.awaiting_approval &&
+                (status.phase === "completed" ||
+                  status.phase === "error" ||
+                  status.decision === "approve" ||
+                  status.decision === "reject");
+
+              const approvalResult: ApprovalResult | null = status.decision
+                ? {
+                    decision: status.decision,
+                    reason: status.reason,
+                    approved_by: status.approved_by,
+                    action_results: status.action_results,
+                    verification_passed: status.verification_passed,
+                    reasoning: status.reasoning,
+                    run_id: status.run_id,
+                  }
+                : null;
+
+              setCache((current) => {
+                const existing = current[resourceId];
+                if (!existing || existing.data.thread_id !== threadId) {
+                  return current;
+                }
+
+                const updatedData = finished
+                  ? {
+                      ...existing.data,
+                      awaiting_approval: false,
+                      reasoning: status.reasoning,
+                    }
+                  : existing.data;
+
+                return {
+                  ...current,
+                  [resourceId]: {
+                    ...existing,
+                    data: updatedData,
+                    cachedAt: finished ? Date.now() : existing.cachedAt,
+                    threadStatus: status,
+                    result: approvalResult ?? existing.result ?? null,
+                  },
+                };
+              });
+
+              if (selectedRef.current === resourceId) {
+                setThreadStatus(status);
+
+                if (finished) {
+                  setInvestigation((current) => {
+                    if (!current || current.thread_id !== threadId) {
+                      return current;
+                    }
+
+                    return {
+                      ...current,
+                      awaiting_approval: false,
+                      reasoning: status.reasoning,
+                    };
+                  });
+
+                  if (approvalResult) {
+                    setResult(approvalResult);
+                  }
+
+                  setCachedAt(Date.now());
+                }
+              }
+
+              if (finished && !syncedThreads.current.has(threadId)) {
+                syncedThreads.current.add(threadId);
+                await loadHistory();
+              }
+            } catch {
+              if (cancelled) return;
             }
-
-            return {
-              ...current,
-              awaiting_approval: false,
-            };
-          });
-
-          if (status.decision) {
-            setResult({
-              decision: status.decision,
-              reason: status.reason,
-              approved_by: status.approved_by,
-              action_results: status.action_results,
-              verification_passed: status.verification_passed,
-              reasoning: status.reasoning,
-              run_id: status.run_id,
-            });
-          }
-
-          setCache((current) => {
-            if (!selected) return current;
-            const next = { ...current };
-            delete next[selected];
-            return next;
-          });
-
-          setCachedAt(null);
-
-          if (!syncedThreads.current.has(threadId!)) {
-            syncedThreads.current.add(threadId!);
-            await Promise.all([load(true), loadHistory()]);
-          }
-
-          return;
-        }
-      } catch {
-        if (cancelled) return;
-      }
-
-      if (!cancelled) {
-        timer = window.setTimeout(poll, 2000);
+          })
+        );
+      } finally {
+        polling = false;
       }
     }
 
-    void poll();
+    void pollPendingThreads();
+    const timer = window.setInterval(pollPendingThreads, 2000);
 
     return () => {
       cancelled = true;
-      if (timer !== undefined) {
-        window.clearTimeout(timer);
-      }
+      window.clearInterval(timer);
     };
-  }, [
-    investigation?.thread_id,
-    investigation?.awaiting_approval,
-    load,
-    loadHistory,
-    selected,
-  ]);
+  }, [loadHistory]);
 
   async function investigate(
     r: Resource,
@@ -232,6 +272,8 @@ export default function Home() {
 
     if (cacheIsFresh && !opts.force && !opts.forcePlan) {
       setInvestigation(cached.data);
+      setThreadStatus(cached.threadStatus ?? null);
+      setResult(cached.result ?? null);
       setCachedAt(cached.cachedAt);
       return;
     }
@@ -241,7 +283,11 @@ export default function Home() {
     setInvestigation(null);
 
     try {
-      const data = await api.investigate(id, opts.forcePlan ?? false);
+      const monitored = !opts.force && !opts.forcePlan
+        ? await api.monitoredInvestigation(id)
+        : null;
+      const data =
+        monitored ?? await api.investigate(id, opts.forcePlan ?? false);
 
       setInvestigation(data);
 
@@ -250,6 +296,8 @@ export default function Home() {
         [id]: {
           data,
           cachedAt: Date.now(),
+          threadStatus: null,
+          result: null,
         },
       }));
 
@@ -273,6 +321,93 @@ export default function Home() {
       setError(`Investigation failed for ${id}.`);
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function runInitialAnalysis(initialResources: Resource[]) {
+    if (!initialResources.length) return;
+
+    setSweeping(true);
+
+    try {
+      const analysed = await Promise.all(
+        initialResources.map(async (resource) => {
+          const monitored = await api.monitoredInvestigation(resource.resource_id);
+          const data =
+            monitored ?? await api.investigate(resource.resource_id, false);
+
+          return { resource, data };
+        })
+      );
+
+      const now = Date.now();
+
+      setCache(
+        Object.fromEntries(
+          analysed.map(({ resource, data }) => [
+            resource.resource_id,
+            {
+              data,
+              cachedAt: now,
+              threadStatus: null,
+              result: null,
+            },
+          ])
+        )
+      );
+      setStale(new Set());
+      setCachedAt(null);
+
+      setVerdicts(
+        Object.fromEntries(
+          analysed
+            .filter(({ data }) => data.recommendation)
+            .map(({ resource, data }) => [
+              resource.resource_id,
+              data.recommendation!.action,
+            ])
+        ) as Record<string, Recommendation["action"]>
+      );
+
+      const results = analysed.map(({ resource, data }) => {
+        const recommendation = data.recommendation;
+        const plan = data.plan;
+
+        const monthlySaving =
+          recommendation?.action === "retire" && plan?.steps?.length && !plan.blocked.length
+            ? plan.steps.reduce((sum, step) => sum + step.monthly_saving, 0)
+            : recommendation?.estimated_monthly_saving ?? 0;
+
+        return {
+          resource_id: resource.resource_id,
+          action: recommendation?.action ?? null,
+          severity: recommendation?.severity ?? null,
+          confidence: recommendation?.confidence ?? null,
+          reason: recommendation?.reason ?? null,
+          steps: plan?.steps.length ?? 0,
+          blocked: plan?.blocked ?? [],
+          monthly_saving: Math.round(monthlySaving * 100) / 100,
+        };
+      });
+
+      const recoverableMonthly =
+        Math.round(
+          results.reduce((sum, row) => sum + row.monthly_saving, 0) * 100
+        ) / 100;
+
+      setSweep({
+        results,
+        recoverable_monthly: recoverableMonthly,
+        recoverable_yearly: Math.round(recoverableMonthly * 12 * 100) / 100,
+        reasoning: analysed.flatMap(({ data }) => data.reasoning),
+      });
+
+      setError(null);
+      loadHistory();
+    } catch {
+      setError("Initial analysis failed.");
+    } finally {
+      setSweeping(false);
     }
   }
 

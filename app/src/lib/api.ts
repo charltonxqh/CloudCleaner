@@ -214,6 +214,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ resource_id, force_plan }),
     }),
+  monitoredInvestigation: async (resource_id: string) => {
+    const res = await fetch(
+      `${BASE}/monitor/resources/${encodeURIComponent(resource_id)}/investigation`
+    );
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.json() as Promise<Investigation>;
+  },
   threadStatus: (threadId: string) =>
     req<ThreadStatus>(`/threads/${threadId}/status`),
   sweep: () => req<SweepResult>("/sweep", { method: "POST" }),
