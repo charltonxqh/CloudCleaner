@@ -215,9 +215,13 @@ def totals(path: Path | None = None) -> dict:
 def evaluation_metrics(path: Path | None = None) -> dict:
     """Evaluation metrics that can be derived from the evidence already recorded.
 
-    Recommendation accuracy still needs an independently labelled benchmark.
-    Token cost still needs provider token-usage telemetry. Those are reported as
-    unavailable rather than manufacturing a score from unrelated data.
+    Human acceptance uses only explicit approve/reject decisions. Invalid responses
+    and analysis-only sweeps are excluded because they are not human judgements.
+
+    LLM cost uses provider-reported token usage recorded by assess.py. Each run is
+    summed before averaging so this remains correct if a run gains multiple model
+    calls later. Calls whose model price is unavailable still retain token telemetry
+    but are excluded from the cost average.
 
     The remaining metrics use data CloudCleaner already persists:
     - tool-call success: instrumented investigate/execute/notify stages
@@ -229,6 +233,19 @@ def evaluation_metrics(path: Path | None = None) -> dict:
     stats = event_stats(path)
 
     with connect(path) as conn:
+        human_rows = conn.execute(
+            """SELECT decision, COUNT(*) AS n
+               FROM runs
+               WHERE decision IN ('approve', 'reject')
+               GROUP BY decision"""
+        ).fetchall()
+
+        token_rows = conn.execute(
+            """SELECT run_id, extra
+               FROM events
+               WHERE node = 'assess' AND event = 'decision'"""
+        ).fetchall()
+
         tool_rows = conn.execute(
             """SELECT node, event, COUNT(*) AS n
                FROM events
@@ -249,6 +266,54 @@ def evaluation_metrics(path: Path | None = None) -> dict:
                  AND verdict IN ('retire', 'keep')
                  AND monthly_cost IS NOT NULL"""
         ).fetchall()
+
+    human_counts = {row["decision"]: row["n"] for row in human_rows}
+    human_approvals = human_counts.get("approve", 0)
+    human_rejections = human_counts.get("reject", 0)
+    human_samples = human_approvals + human_rejections
+    human_acceptance_rate = (
+        round(human_approvals / human_samples, 3) if human_samples else None
+    )
+
+    run_costs: dict[str, float] = {}
+    token_prompt_total = 0
+    token_completion_total = 0
+    token_usage_samples = 0
+    models: set[str] = set()
+
+    for row in token_rows:
+        try:
+            extra = json.loads(row["extra"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            continue
+
+        prompt_tokens = extra.get("prompt_tokens")
+        completion_tokens = extra.get("completion_tokens")
+        if prompt_tokens is not None and completion_tokens is not None:
+            token_prompt_total += int(prompt_tokens)
+            token_completion_total += int(completion_tokens)
+            token_usage_samples += 1
+
+        model = extra.get("model")
+        if model:
+            models.add(model)
+
+        cost = extra.get("llm_cost_usd")
+        if cost is not None:
+            run_id = row["run_id"]
+            run_costs[run_id] = run_costs.get(run_id, 0.0) + float(cost)
+
+    token_cost_samples = len(run_costs)
+    total_llm_cost_usd = sum(run_costs.values())
+    avg_token_cost_usd = (
+        total_llm_cost_usd / token_cost_samples if token_cost_samples else None
+    )
+    avg_prompt_tokens = (
+        round(token_prompt_total / token_usage_samples) if token_usage_samples else None
+    )
+    avg_completion_tokens = (
+        round(token_completion_total / token_usage_samples) if token_usage_samples else None
+    )
 
     tool_successes = 0
     tool_failures = 0
@@ -322,12 +387,19 @@ def evaluation_metrics(path: Path | None = None) -> dict:
     )
 
     return {
-        "recommendation_accuracy": None,
-        "recommendation_samples": 0,
+        "human_acceptance_rate": human_acceptance_rate,
+        "human_approvals": human_approvals,
+        "human_rejections": human_rejections,
+        "human_approval_samples": human_samples,
         "schema_validation_rate": stats["llm_success_rate"],
         "schema_validation_samples": stats["assessments"],
-        "avg_token_cost_usd": None,
-        "token_cost_samples": 0,
+        "avg_token_cost_usd": avg_token_cost_usd,
+        "token_cost_samples": token_cost_samples,
+        "token_usage_samples": token_usage_samples,
+        "avg_prompt_tokens": avg_prompt_tokens,
+        "avg_completion_tokens": avg_completion_tokens,
+        "total_llm_cost_usd": total_llm_cost_usd if token_cost_samples else None,
+        "llm_models": sorted(models),
         "tool_call_success_rate": tool_success_rate,
         "tool_call_successes": tool_successes,
         "tool_call_attempts": tool_attempts,

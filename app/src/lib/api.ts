@@ -172,12 +172,19 @@ export type ThreadStatus = {
 };
 
 export type EvaluationMetrics = {
-  recommendation_accuracy: number | null;
-  recommendation_samples: number;
+  human_acceptance_rate: number | null;
+  human_approvals: number;
+  human_rejections: number;
+  human_approval_samples: number;
   schema_validation_rate: number | null;
   schema_validation_samples: number;
   avg_token_cost_usd: number | null;
   token_cost_samples: number;
+  token_usage_samples: number;
+  avg_prompt_tokens: number | null;
+  avg_completion_tokens: number | null;
+  total_llm_cost_usd: number | null;
+  llm_models: string[];
   tool_call_success_rate: number | null;
   tool_call_successes: number;
   tool_call_attempts: number;
