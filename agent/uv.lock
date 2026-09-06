@@ -367,28 +367,49 @@ wheels = [
 ]
 
 [[package]]
-name = "cloudcleaner-agent"
+name = "cloudcleaner"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "ag-ui-langgraph", extra = ["fastapi"] },
-    { name = "ag-ui-protocol" },
     { name = "boto3" },
-    { name = "copilotkit" },
-    { name = "fastapi" },
     { name = "langchain" },
-    { name = "langchain-anthropic" },
     { name = "langchain-groq" },
-    { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-sqlite" },
-    { name = "langsmith" },
-    { name = "openai" },
     { name = "pydantic" },
     { name = "pygithub" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "ag-ui-langgraph", extra = ["fastapi"] },
+    { name = "ag-ui-protocol" },
+    { name = "copilotkit" },
+    { name = "fastapi" },
+    { name = "langchain-anthropic" },
+    { name = "langchain-openai" },
+    { name = "langsmith" },
+    { name = "openai" },
     { name = "uvicorn" },
+]
+anthropic = [
+    { name = "langchain-anthropic" },
+]
+openai = [
+    { name = "langchain-openai" },
+    { name = "openai" },
+]
+server = [
+    { name = "ag-ui-langgraph", extra = ["fastapi"] },
+    { name = "ag-ui-protocol" },
+    { name = "copilotkit" },
+    { name = "fastapi" },
+    { name = "uvicorn" },
+]
+tracing = [
+    { name = "langsmith" },
 ]
 
 [package.dev-dependencies]
@@ -400,25 +421,27 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ag-ui-langgraph", extras = ["fastapi"], specifier = "==0.0.43" },
-    { name = "ag-ui-protocol", specifier = "==0.1.19" },
+    { name = "ag-ui-langgraph", extras = ["fastapi"], marker = "extra == 'server'", specifier = "==0.0.43" },
+    { name = "ag-ui-protocol", marker = "extra == 'server'", specifier = "==0.1.19" },
     { name = "boto3", specifier = ">=1.43.86" },
-    { name = "copilotkit", specifier = "==0.1.96" },
-    { name = "fastapi", specifier = ">=0.115.5,<1.0.0" },
+    { name = "cloudcleaner", extras = ["server", "openai", "anthropic", "tracing"], marker = "extra == 'all'" },
+    { name = "copilotkit", marker = "extra == 'server'", specifier = "==0.1.96" },
+    { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.115.5,<1.0.0" },
     { name = "langchain", specifier = "==1.2.15" },
-    { name = "langchain-anthropic", specifier = "==1.4.1" },
+    { name = "langchain-anthropic", marker = "extra == 'anthropic'", specifier = "==1.4.1" },
     { name = "langchain-groq", specifier = ">=1.1.3" },
-    { name = "langchain-openai", specifier = "==1.1.9" },
+    { name = "langchain-openai", marker = "extra == 'openai'", specifier = "==1.1.9" },
     { name = "langgraph", specifier = "==1.1.6" },
     { name = "langgraph-checkpoint-sqlite", specifier = ">=3.1.1" },
-    { name = "langsmith", specifier = "==0.7.33" },
-    { name = "openai", specifier = "==1.109.1" },
+    { name = "langsmith", marker = "extra == 'tracing'", specifier = "==0.7.33" },
+    { name = "openai", marker = "extra == 'openai'", specifier = "==1.109.1" },
     { name = "pydantic", specifier = ">=2.0.0,<3.0.0" },
     { name = "pygithub", specifier = ">=2.10.0" },
     { name = "python-dotenv", specifier = ">=1.0.0,<2.0.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "uvicorn", specifier = ">=0.29.0,<1.0.0" },
+    { name = "uvicorn", marker = "extra == 'server'", specifier = ">=0.29.0,<1.0.0" },
 ]
+provides-extras = ["server", "openai", "anthropic", "tracing", "all"]
 
 [package.metadata.requires-dev]
 dev = [

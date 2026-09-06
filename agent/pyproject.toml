@@ -1,29 +1,53 @@
 [project]
-name = "cloudcleaner-agent"
+name = "cloudcleaner"
 version = "0.1.0"
-description = ""
+description = "Finds idle AWS resources, proves they are unused, and plans a dependency-ordered teardown behind a human approval gate."
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+keywords = ["aws", "finops", "cost-optimization", "agent", "langgraph", "cloud"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: System Administrators",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: System :: Systems Administration",
+]
+
+# The agent itself. A CLI user gets AWS, the graph, one LLM client and storage —
+# no web server.
 dependencies = [
-  "copilotkit==0.1.96",
   "langchain==1.2.15",
-  "langchain-openai==1.1.9",
-  "langchain-anthropic==1.4.1",
   "langgraph==1.1.6",
-  "langsmith==0.7.33",
-  "openai==1.109.1",
-  "fastapi>=0.115.5,<1.0.0",
-  "uvicorn>=0.29.0,<1.0.0",
+  "langgraph-checkpoint-sqlite>=3.1.1",
+  "langchain-groq>=1.1.3",
   "python-dotenv>=1.0.0,<2.0.0",
-  "ag-ui-langgraph[fastapi]==0.0.43",
-  "ag-ui-protocol==0.1.19",
   "pydantic>=2.0.0,<3.0.0",
   "boto3>=1.43.86",
-  "langchain-groq>=1.1.3",
   "pygithub>=2.10.0",
   "pyyaml>=6.0.3",
-  "langgraph-checkpoint-sqlite>=3.1.1",
 ]
+
+[project.optional-dependencies]
+# The HTTP API and the AG-UI bridge the web frontend talks to.
+server = [
+  "fastapi>=0.115.5,<1.0.0",
+  "uvicorn>=0.29.0,<1.0.0",
+  "copilotkit==0.1.96",
+  "ag-ui-langgraph[fastapi]==0.0.43",
+  "ag-ui-protocol==0.1.19",
+]
+# Alternative model providers. Groq is the default and ships in the core.
+openai = ["langchain-openai==1.1.9", "openai==1.109.1"]
+anthropic = ["langchain-anthropic==1.4.1"]
+tracing = ["langsmith==0.7.33"]
+all = ["cloudcleaner[server,openai,anthropic,tracing]"]
+
+[project.scripts]
+cloudcleaner = "cloudcleaner.cli:main"
+
+[project.urls]
+Repository = "https://github.com/charltonxqh/CloudCleaner"
 
 [build-system]
 requires = ["setuptools>=68"]
