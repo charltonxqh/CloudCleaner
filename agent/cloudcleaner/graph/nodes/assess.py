@@ -1,3 +1,6 @@
+import os
+from functools import lru_cache
+
 from cloudcleaner.config import AI_ENABLED, GROQ_MODEL
 from cloudcleaner.evidence.collector import log
 from cloudcleaner.graph.state import CloudCleanerState
@@ -38,6 +41,129 @@ GitHub and CI/CD evidence:
 
 Answer in one or two sentences, citing the numbers you used.
 """
+
+
+# Groq currently exposes per-token pricing in model metadata for many hosted models.
+# These published rates are only a fallback if that metadata is unavailable.
+_FALLBACK_PRICING_PER_TOKEN = {
+    "openai/gpt-oss-20b": {
+        "input": 0.075 / 1_000_000,
+        "cached_input": 0.037 / 1_000_000,
+        "output": 0.30 / 1_000_000,
+    },
+    "openai/gpt-oss-120b": {
+        "input": 0.15 / 1_000_000,
+        "cached_input": 0.075 / 1_000_000,
+        "output": 0.60 / 1_000_000,
+    },
+}
+
+
+def _float_env(name: str) -> float | None:
+    value = os.getenv(name)
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+@lru_cache(maxsize=None)
+def _pricing_for_model(model: str) -> tuple[dict[str, float] | None, str | None]:
+    input_override = _float_env("GROQ_INPUT_PRICE_PER_1M")
+    output_override = _float_env("GROQ_OUTPUT_PRICE_PER_1M")
+    cached_override = _float_env("GROQ_CACHED_INPUT_PRICE_PER_1M")
+    if input_override is not None and output_override is not None:
+        return {
+            "input": input_override / 1_000_000,
+            "cached_input": (
+                cached_override / 1_000_000
+                if cached_override is not None
+                else input_override / 1_000_000
+            ),
+            "output": output_override / 1_000_000,
+        }, "env"
+
+    try:
+        from groq import Groq
+
+        metadata = Groq().models.retrieve(model)
+        raw = metadata.model_dump() if hasattr(metadata, "model_dump") else dict(metadata)
+        pricing = raw.get("pricing") or {}
+        prompt = pricing.get("prompt")
+        completion = pricing.get("completion")
+        cached = pricing.get("input_cache_read")
+
+        if prompt is not None and completion is not None:
+            prompt_rate = float(prompt)
+            completion_rate = float(completion)
+            cached_rate = float(cached) if cached is not None else prompt_rate
+            return {
+                "input": prompt_rate,
+                "cached_input": cached_rate,
+                "output": completion_rate,
+            }, "groq_api"
+    except Exception:
+        pass
+
+    fallback = _FALLBACK_PRICING_PER_TOKEN.get(model)
+    return (fallback, "fallback") if fallback else (None, None)
+
+
+def _usage_from_raw(raw) -> dict[str, int]:
+    usage_metadata = getattr(raw, "usage_metadata", None) or {}
+    response_metadata = getattr(raw, "response_metadata", None) or {}
+    token_usage = response_metadata.get("token_usage") or response_metadata.get("usage") or {}
+
+    input_tokens = (
+        usage_metadata.get("input_tokens")
+        or token_usage.get("prompt_tokens")
+        or 0
+    )
+    output_tokens = (
+        usage_metadata.get("output_tokens")
+        or token_usage.get("completion_tokens")
+        or 0
+    )
+    total_tokens = (
+        usage_metadata.get("total_tokens")
+        or token_usage.get("total_tokens")
+        or input_tokens + output_tokens
+    )
+
+    input_details = usage_metadata.get("input_token_details") or {}
+    prompt_details = token_usage.get("prompt_tokens_details") or {}
+    cached_tokens = (
+        input_details.get("cache_read")
+        or input_details.get("cached_tokens")
+        or prompt_details.get("cached_tokens")
+        or 0
+    )
+
+    return {
+        "prompt_tokens": int(input_tokens or 0),
+        "completion_tokens": int(output_tokens or 0),
+        "total_tokens": int(total_tokens or 0),
+        "cached_tokens": int(cached_tokens or 0),
+    }
+
+
+def _llm_cost(usage: dict[str, int], model: str) -> tuple[float | None, str | None]:
+    pricing, source = _pricing_for_model(model)
+    if pricing is None:
+        return None, None
+
+    prompt_tokens = usage["prompt_tokens"]
+    cached_tokens = min(usage["cached_tokens"], prompt_tokens)
+    uncached_tokens = prompt_tokens - cached_tokens
+
+    cost = (
+        uncached_tokens * pricing["input"]
+        + cached_tokens * pricing["cached_input"]
+        + usage["completion_tokens"] * pricing["output"]
+    )
+    return cost, source
 
 
 def _model():
@@ -118,19 +244,40 @@ def assess_node(state: CloudCleanerState):
         # gpt-oss-20b fails on prompts this long, emitting a tool type of
         # "functions.Recommendation" or refusing tool choice outright. Measured
         # at 0/4 with tool calling and 4/4 with json_schema on the same inputs.
-        rec = (
+        result = (
             _model()
-            .with_structured_output(Recommendation, method="json_schema")
+            .with_structured_output(
+                Recommendation,
+                method="json_schema",
+                include_raw=True,
+            )
             .invoke(prompt)
         )
+        rec = result.get("parsed")
+        if rec is None:
+            raise ValueError(result.get("parsing_error") or "structured response was not parsed")
+
+        usage = _usage_from_raw(result.get("raw"))
+        llm_cost_usd, pricing_source = _llm_cost(usage, GROQ_MODEL)
     except Exception as e:
         log.emit("assess", "error", resource.resource_id, f"llm failed: {e}; falling back to rules")
         rec = rules_only_verdict(resource, aws, github)
+        usage = None
+        llm_cost_usd = None
+        pricing_source = None
 
     saving = (resource.monthly_saving_if_stopped or 0.0) if rec.action == "stop" else \
         (resource.estimated_monthly_cost or 0.0) if rec.action == "retire" else 0.0
     rec.severity, rec.estimated_monthly_saving = severity, saving
     log.emit("assess", "decision", resource.resource_id,
-             f"{rec.action} ({rec.confidence:.0%}) - {rec.reason}", severity=severity)
+             f"{rec.action} ({rec.confidence:.0%}) - {rec.reason}",
+             severity=severity,
+             model=GROQ_MODEL if usage is not None else None,
+             prompt_tokens=usage["prompt_tokens"] if usage is not None else None,
+             completion_tokens=usage["completion_tokens"] if usage is not None else None,
+             total_tokens=usage["total_tokens"] if usage is not None else None,
+             cached_tokens=usage["cached_tokens"] if usage is not None else None,
+             llm_cost_usd=llm_cost_usd,
+             pricing_source=pricing_source)
 
     return {"recommendation": rec}

@@ -116,7 +116,7 @@ export function EvaluationView({
           className="mt-2 max-w-[900px] text-[15.5px] leading-relaxed"
           style={{ color: "var(--fg-muted)" }}
         >
-          Measures recommendation quality, model reliability, tool execution,
+          Measures human review outcomes, model reliability, tool execution,
           teardown safety, and financial accuracy across CloudCleaner runs.
         </p>
       </div>
@@ -124,13 +124,13 @@ export function EvaluationView({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <EvaluationCard
           index={0}
-          label="Recommendation accuracy"
-          value={percent(evaluation?.recommendation_accuracy ?? null)}
-          description="How often CloudCleaner chooses the correct KEEP, STOP, RETIRE, or INVESTIGATE MORE verdict against an independently labelled benchmark."
+          label="Human acceptance rate"
+          value={percent(evaluation?.human_acceptance_rate ?? null)}
+          description="How often a human reviewer approves a CloudCleaner recommendation that requires approval. Analysis-only runs and invalid responses are excluded."
           sample={
-            evaluation?.recommendation_samples
-              ? `${evaluation.recommendation_samples} labelled benchmark samples`
-              : "Requires an independently labelled benchmark dataset"
+            evaluation?.human_approval_samples
+              ? `${evaluation.human_approvals} approved · ${evaluation.human_rejections} rejected`
+              : "No human approval decisions recorded yet"
           }
         />
 
@@ -155,18 +155,20 @@ export function EvaluationView({
 
         <EvaluationCard
           index={2}
-          label="Token cost per run"
+          label="Average LLM cost"
           value={
             evaluation?.avg_token_cost_usd === null ||
             evaluation?.avg_token_cost_usd === undefined
               ? "Not captured"
-              : `$${evaluation.avg_token_cost_usd.toFixed(4)}`
+              : `$${evaluation.avg_token_cost_usd.toFixed(6)}`
           }
-          description="Average LLM inference cost for one CloudCleaner investigation, calculated from prompt and completion token usage."
+          description="Average measured LLM inference cost per CloudCleaner run, using provider-reported token usage and model-specific pricing."
           sample={
-            evaluation?.token_cost_samples
-              ? `${evaluation.token_cost_samples} measured model runs`
-              : "Token usage is not persisted yet"
+            evaluation?.token_usage_samples
+              ? `${evaluation.token_cost_samples} priced runs · ${evaluation.avg_prompt_tokens ?? 0} avg input · ${evaluation.avg_completion_tokens ?? 0} avg output tokens${
+                  evaluation.llm_models.length ? ` · ${evaluation.llm_models.join(", ")}` : ""
+                }`
+              : "No model token usage recorded yet"
           }
         />
 
