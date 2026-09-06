@@ -171,7 +171,7 @@ export function ResourcesView({
                   <th
                     key={h}
                     scope="col"
-                    className={`label px-4 py-2.5 ${
+                    className={`label px-4 py-3 text-[15px] ${
                       i === headers.length - 1 ? "text-right" : "text-left"
                     }`}
                     style={{ borderBottom: "2px solid var(--border-strong)" }}

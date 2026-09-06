@@ -89,6 +89,79 @@ function BigStat({
 }
 
 /** Horizontal bar — a chart type that survives a screen reader, unlike a pie. */
+
+/** 7x7 marks for the two lower panels, same grid as the logo. */
+const PANEL_GLYPH: Record<string, [number, number][]> = {
+  bars: [[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],
+         [1,4],[1,5],[3,2],[3,3],[3,4],[3,5],[5,0],[5,1],[5,2],[5,3],[5,4],[5,5]],
+  drain: [[1,0],[2,0],[3,0],[4,0],[5,0],[1,1],[5,1],[2,2],[3,2],[4,2],
+          [3,3],[3,4],[2,5],[4,5],[3,6]],
+};
+
+function PanelMark({ kind, colour }: { kind: "bars" | "drain"; colour: string }) {
+  return (
+    <svg viewBox="0 0 7 7" width="18" height="18" shapeRendering="crispEdges"
+         aria-hidden="true" style={{ color: colour }}>
+      {PANEL_GLYPH[kind].map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
+
+
+const METER_CELLS = 22;
+
+/** A block meter, like a health bar. Discrete cells make small differences
+ *  easier to compare than a smooth fill, and they read as pixel art. */
+function BlockMeter({ wasted, total, max }: { wasted: number; total: number; max: number }) {
+  const cells = (n: number) => Math.round((n / max) * METER_CELLS);
+  const wastedCells = Math.min(cells(wasted), METER_CELLS);
+  const usedCells = Math.min(cells(total) - wastedCells, METER_CELLS - wastedCells);
+  const share = total ? Math.round((wasted / total) * 100) : 0;
+
+  return (
+    <div className="group relative">
+      <div
+        className="flex gap-[3px]"
+        role="img"
+        aria-label={`${money(wasted)} of ${money(total)} wasted`}
+      >
+        {Array.from({ length: METER_CELLS }, (_, i) => {
+          // Three states, and they have to be told apart at a glance: pink is
+          // wasted, blue is genuinely in use, and the rest is empty track.
+          // --surface-3 was too close to the empty cells to read as a category.
+          const filled = i < wastedCells ? "var(--pink)"
+            : i < wastedCells + usedCells ? "rgb(144 170 255 / 0.45)"
+            : "rgb(255 255 255 / 0.035)";
+          return (
+            <span
+              key={i}
+              className="h-[22px] flex-1 transition-colors duration-300"
+              style={{ background: filled, transitionDelay: `${i * 18}ms` }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Reveals the split the meter can only approximate. */}
+      <div
+        className="pixel-sm pointer-events-none absolute -top-1 left-1/2 z-20 hidden
+                   -translate-x-1/2 -translate-y-full whitespace-nowrap px-3 py-2
+                   group-hover:block"
+        style={{ background: "var(--surface-3)", boxShadow: "0 4px 0 rgb(0 0 0 / 0.45)" }}
+      >
+        <div className="num text-[14px] font-bold" style={{ color: "var(--pink-on-dark)" }}>
+          {money(wasted)} wasted
+        </div>
+        <div className="num mt-0.5 text-[12.5px]" style={{ color: "var(--fg-muted)" }}>
+          {money(total - wasted)} in use · {share}% of {money(total)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WasteBreakdown({ resources }: { resources: Resource[] }) {
   const byType = new Map<string, { total: number; wasted: number; count: number }>();
   for (const r of resources) {
@@ -111,9 +184,12 @@ function WasteBreakdown({ resources }: { resources: Resource[] }) {
         borderTop: "3px solid var(--blue-on-dark)",
       }}
     >
-      <div className="text-[14px] font-semibold uppercase tracking-[0.08em]"
-           style={{ color: "var(--blue-on-dark)" }}>
-        Spend by resource type
+      <div className="flex items-center gap-2.5">
+        <PanelMark kind="bars" colour="var(--blue-on-dark)" />
+        <span className="font-bold uppercase leading-tight"
+              style={{ color: "var(--blue-on-dark)", fontSize: 20, letterSpacing: "0.01em" }}>
+          Spend by resource type
+        </span>
       </div>
       <table className="mt-4 w-full border-collapse">
         <caption className="sr-only">
@@ -124,37 +200,18 @@ function WasteBreakdown({ resources }: { resources: Resource[] }) {
             <tr key={type} className="rise" style={{ ["--i" as string]: i }}>
               <th
                 scope="row"
-                className="w-[150px] py-2 pr-4 text-left text-[14px] font-normal"
+                className="w-[168px] py-2.5 pr-4 text-left text-[16px] font-medium"
                 style={{ color: "var(--fg-muted)" }}
               >
                 {TYPE_LABEL[type] ?? type}
-                <span className="ml-2 text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
+                <span className="ml-2 text-[14px]" style={{ color: "var(--fg-faint)" }}>
                   ×{v.count}
                 </span>
               </th>
-              <td className="py-2">
-                {/* Segmented like a health bar — discrete blocks read as pixel
-                    art, and make small differences easier to compare. */}
-                <div className="pixel-bar h-[20px] w-full overflow-hidden"
-                     style={{ background: "var(--surface-2)" }}>
-                  <div className="flex h-full">
-                    <span
-                      className="h-full transition-[width] duration-500"
-                      style={{ width: `${(v.wasted / max) * 100}%`, background: "var(--pink)" }}
-                      title={`${money(v.wasted)} wasted`}
-                    />
-                    <span
-                      className="h-full transition-[width] duration-500"
-                      style={{
-                        width: `${((v.total - v.wasted) / max) * 100}%`,
-                        background: "var(--surface-3)",
-                      }}
-                      title={`${money(v.total - v.wasted)} in use`}
-                    />
-                  </div>
-                </div>
+              <td className="py-2.5">
+                <BlockMeter wasted={v.wasted} total={v.total} max={max} />
               </td>
-              <td className="num w-[88px] py-2 pl-4 text-right text-[14px]">
+              <td className="num w-[96px] py-2.5 pl-4 text-right text-[17px] font-semibold">
                 {money(v.total)}
               </td>
             </tr>
@@ -162,12 +219,16 @@ function WasteBreakdown({ resources }: { resources: Resource[] }) {
         </tbody>
       </table>
 
-      <div className="mt-4 flex gap-5 text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
+      <div className="mt-4 flex gap-5 text-[14px]" style={{ color: "var(--fg-muted)" }}>
         <span className="flex items-center gap-2">
           <span className="h-2.5 w-3.5" style={{ background: "var(--pink)" }} /> wasted
         </span>
         <span className="flex items-center gap-2">
-          <span className="h-2.5 w-3.5" style={{ background: "var(--border-strong)" }} /> in use
+          <span className="h-2.5 w-3.5" style={{ background: "rgb(144 170 255 / 0.45)" }} /> in use
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="h-2.5 w-3.5" style={{ background: "rgb(255 255 255 / 0.035)" }} />
+          no spend
         </span>
       </div>
     </div>
@@ -236,11 +297,17 @@ export function OverviewView({
           }}
         >
           <div className="flex items-center justify-between">
-            <div className="text-[14px] font-semibold uppercase tracking-[0.08em]"
-                 style={{ color: "var(--pink-on-dark)" }}>
-              Paying for nothing
+            <div className="flex items-center gap-2.5">
+              <PanelMark kind="drain" colour="var(--pink-on-dark)" />
+              <span className="font-bold uppercase leading-tight"
+                    style={{ color: "var(--pink-on-dark)", fontSize: 20, letterSpacing: "0.01em" }}>
+                Paying for nothing
+              </span>
             </div>
-            <span className="num text-[15px] font-semibold" style={{ color: "var(--danger)" }}>
+            <span
+              className="pixel-sm num px-2.5 py-[3px] text-[17px] font-bold"
+              style={{ background: "var(--pink)", color: "var(--pink-fg)" }}
+            >
               {money(wasteful.reduce((s, r) => s + (r.estimated_monthly_cost ?? 0), 0))}/mo
             </span>
           </div>

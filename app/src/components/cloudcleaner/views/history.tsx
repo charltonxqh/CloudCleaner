@@ -188,7 +188,7 @@ export function HistoryView({
                   <th
                     key={h || "expand"}
                     scope="col"
-                    className={`label px-4 py-2.5 ${i === 5 ? "text-right" : "text-left"}`}
+                    className={`label px-4 py-3 text-[15px] ${i === 5 ? "text-right" : "text-left"}`}
                     style={{ borderBottom: "1px solid var(--border)" }}
                   >
                     {h}
