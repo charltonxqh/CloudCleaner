@@ -75,7 +75,7 @@ export function Sidebar({
         <svg
           viewBox={L_BOX}
           className="h-[86px] w-[112px] shrink-0"
-          shape-rendering="crispEdges"
+          shapeRendering="crispEdges"
           role="img"
           aria-label="CloudCleaner"
           style={{ color: "var(--nav-fg)" }}

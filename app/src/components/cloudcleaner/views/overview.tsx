@@ -37,7 +37,7 @@ const GLYPHS: Record<string, [number, number][]> = {
 function PixelGlyph({ tint }: { tint: keyof typeof TINT }) {
   const px = GLYPHS[tint] ?? [];
   return (
-    <svg viewBox="0 0 8 9" className="h-6 w-6 shrink-0" shape-rendering="crispEdges"
+    <svg viewBox="0 0 8 9" className="h-6 w-6 shrink-0" shapeRendering="crispEdges"
          aria-hidden="true" style={{ opacity: 0.32 }}>
       {px.map(([x, y]) => (
         <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" fill="currentColor" />

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1412 620" width="1412" height="620" font-family="Fira Sans, Segoe UI, Helvetica, Arial, sans-serif" role="img" aria-label="Stopping an instance does not stop the bill">
+  <title>Stopping an instance does not stop the bill</title>
+  <rect width="1412" height="620" fill="#060a1a"/>
+  <text x="56" y="62" font-size="30" fill="#e9edff" font-weight="700" text-anchor="start">Stopping an instance does not stop the bill</text>
+  <text x="56" y="92" font-size="16" fill="#a2acd8" font-weight="400" text-anchor="start">Stop releases the compute. Storage and the public address keep charging, indefinitely.</text>
+  <text x="246" y="152" font-size="14" fill="#90aaff" font-weight="700" text-anchor="middle" letter-spacing="0.06em">WHILE RUNNING</text>
+  <polygon points="56,190 61,190 61,185 66,185 66,180 426,180 426,185 431,185 431,190 436,190 436,210 431,210 431,215 426,215 426,220 66,220 66,215 61,215 61,210 56,210" fill="#90aaff" stroke="#2c3872" stroke-width="1"/>
+  <text x="78" y="206.0" font-size="14.5" fill="#0b1020" font-weight="600" text-anchor="start">compute  t3.micro</text>
+  <text x="414" y="206.0" font-size="15" fill="#0b1020" font-weight="700" text-anchor="end">$7.59</text>
+  <polygon points="56,238 61,238 61,233 66,233 66,228 426,228 426,233 431,233 431,238 436,238 436,244 431,244 431,249 426,249 426,254 66,254 66,249 61,249 61,244 56,244" fill="#90aaff" stroke="#2c3872" stroke-width="1"/>
+  <text x="78" y="247.0" font-size="14.5" fill="#0b1020" font-weight="600" text-anchor="start">storage  16 GB gp3</text>
+  <text x="414" y="247.0" font-size="15" fill="#0b1020" font-weight="700" text-anchor="end">$1.28</text>
+  <polygon points="56,272 61,272 61,267 66,267 66,262 426,262 426,267 431,267 431,272 436,272 436,278 431,278 431,283 426,283 426,288 66,288 66,283 61,283 61,278 56,278" fill="#90aaff" stroke="#2c3872" stroke-width="1"/>
+  <text x="78" y="281.0" font-size="14.5" fill="#0b1020" font-weight="600" text-anchor="start">public IPv4</text>
+  <text x="414" y="281.0" font-size="15" fill="#0b1020" font-weight="700" text-anchor="end">$3.65</text>
+  <rect x="56" y="302" width="380" height="3" fill="#2c3872"/>
+  <text x="56" y="340" font-size="13" fill="#6a75a6" font-weight="400" text-anchor="start">billed monthly</text>
+  <text x="436" y="342" font-size="24" fill="#90aaff" font-weight="700" text-anchor="end">$12.52</text>
+  <text x="706" y="152" font-size="14" fill="#ff9dc0" font-weight="700" text-anchor="middle" letter-spacing="0.06em">AFTER PRESSING STOP</text>
+  <polygon points="516,190 521,190 521,185 526,185 526,180 886,180 886,185 891,185 891,190 896,190 896,196 891,196 891,201 886,201 886,206 526,206 526,201 521,201 521,196 516,196" fill="#161e42" stroke="#2c3872" stroke-width="1"/>
+  <text x="538" y="199.0" font-size="14.5" fill="#6a75a6" font-weight="600" text-anchor="start">compute  released</text>
+  <text x="874" y="199.0" font-size="15" fill="#6a75a6" font-weight="700" text-anchor="end">$0.00</text>
+  <polygon points="516,224 521,224 521,219 526,219 526,214 886,214 886,219 891,219 891,224 896,224 896,230 891,230 891,235 886,235 886,240 526,240 526,235 521,235 521,230 516,230" fill="#ff9dc0" stroke="#2c3872" stroke-width="1"/>
+  <text x="538" y="233.0" font-size="14.5" fill="#0b1020" font-weight="600" text-anchor="start">storage  16 GB gp3</text>
+  <text x="874" y="233.0" font-size="15" fill="#0b1020" font-weight="700" text-anchor="end">$1.28</text>
+  <polygon points="516,258 521,258 521,253 526,253 526,248 886,248 886,253 891,253 891,258 896,258 896,264 891,264 891,269 886,269 886,274 526,274 526,269 521,269 521,264 516,264" fill="#ff9dc0" stroke="#2c3872" stroke-width="1"/>
+  <text x="538" y="267.0" font-size="14.5" fill="#0b1020" font-weight="600" text-anchor="start">public IPv4</text>
+  <text x="874" y="267.0" font-size="15" fill="#0b1020" font-weight="700" text-anchor="end">$3.65</text>
+  <rect x="516" y="288" width="380" height="3" fill="#2c3872"/>
+  <text x="516" y="326" font-size="13" fill="#6a75a6" font-weight="400" text-anchor="start">billed monthly</text>
+  <text x="896" y="328" font-size="24" fill="#ff9dc0" font-weight="700" text-anchor="end">$4.93</text>
+  <text x="1166" y="152" font-size="14" fill="#67e3c4" font-weight="700" text-anchor="middle" letter-spacing="0.06em">AFTER CLOUDCLEANER</text>
+  <polygon points="976,190 981,190 981,185 986,185 986,180 1346,180 1346,185 1351,185 1351,190 1356,190 1356,196 1351,196 1351,201 1346,201 1346,206 986,206 986,201 981,201 981,196 976,196" fill="#161e42" stroke="#2c3872" stroke-width="1"/>
+  <text x="998" y="199.0" font-size="14.5" fill="#6a75a6" font-weight="600" text-anchor="start">compute  terminated</text>
+  <text x="1334" y="199.0" font-size="15" fill="#6a75a6" font-weight="700" text-anchor="end">$0.00</text>
+  <polygon points="976,224 981,224 981,219 986,219 986,214 1346,214 1346,219 1351,219 1351,224 1356,224 1356,230 1351,230 1351,235 1346,235 1346,240 986,240 986,235 981,235 981,230 976,230" fill="#161e42" stroke="#2c3872" stroke-width="1"/>
+  <text x="998" y="233.0" font-size="14.5" fill="#6a75a6" font-weight="600" text-anchor="start">storage  deleted</text>
+  <text x="1334" y="233.0" font-size="15" fill="#6a75a6" font-weight="700" text-anchor="end">$0.00</text>
+  <polygon points="976,258 981,258 981,253 986,253 986,248 1346,248 1346,253 1351,253 1351,258 1356,258 1356,264 1351,264 1351,269 1346,269 1346,274 986,274 986,269 981,269 981,264 976,264" fill="#161e42" stroke="#2c3872" stroke-width="1"/>
+  <text x="998" y="267.0" font-size="14.5" fill="#6a75a6" font-weight="600" text-anchor="start">address  released</text>
+  <text x="1334" y="267.0" font-size="15" fill="#6a75a6" font-weight="700" text-anchor="end">$0.00</text>
+  <rect x="976" y="288" width="380" height="3" fill="#2c3872"/>
+  <text x="976" y="326" font-size="13" fill="#6a75a6" font-weight="400" text-anchor="start">billed monthly</text>
+  <text x="1356" y="328" font-size="24" fill="#67e3c4" font-weight="700" text-anchor="end">$0.00</text>
+  <text x="56" y="580" font-size="15" fill="#a2acd8" font-weight="400" text-anchor="start">The middle column is the bill nobody expects. CloudCleaner finds it, and works out the order to dismantle it in.</text>
+</svg>
