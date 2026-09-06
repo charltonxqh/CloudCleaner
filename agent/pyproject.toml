@@ -26,6 +26,7 @@ dependencies = [
   "boto3>=1.43.86",
   "pygithub>=2.10.0",
   "pyyaml>=6.0.3",
+  "mcp>=2,<3",
 ]
 
 [project.optional-dependencies]

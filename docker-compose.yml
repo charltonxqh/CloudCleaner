@@ -1,4 +1,25 @@
 services:
+  mcp:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    command:
+      - uv
+      - run
+      - --no-dev
+      - --extra
+      - server
+      - python
+      - -m
+      - cloudcleaner.mcp.server
+    ports:
+      - "8130:8130"
+    env_file:
+      - .env
+    environment:
+      CLOUDCLEANER_MCP_PORT: "8130"
+    restart: unless-stopped
+
   backend:
     build:
       context: ./agent
@@ -7,8 +28,12 @@ services:
       - "8123:8123"
     env_file:
       - .env
+    environment:
+      CLOUDCLEANER_MCP_URL: http://mcp:8130/mcp
     volumes:
       - ./output:/output
+    depends_on:
+      - mcp
     restart: unless-stopped
 
   frontend:
