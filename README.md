@@ -12,77 +12,99 @@ Built for the **IGNITE Agentic AI Hackathon 2026** (SimplifyNext) — **Software
 ### 1.1 The idea
 
 Cloud accounts accumulate resources nobody dares delete, because nobody can prove they are unused.
-CloudCleaner is a **decision-support + transaction agent** that builds the proof:
+CloudCleaner is a **decision-support + transaction agent** that builds the proof, and then does the
+thing that actually blocks people: works out what order it all has to come apart in.
 
 ```
-DETECT  →  INVESTIGATE  →  ASSESS  →  HUMAN APPROVAL  →  EXECUTE  →  VERIFY
+DETECT → INVESTIGATE → ASSESS → POLICY → PLAN → APPROVAL → EXECUTE → VERIFY → (ROLLBACK) → RECORD
 ```
 
-- **DETECT** — list live AWS resources (currently EC2 instances).
-- **INVESTIGATE** — collect evidence: CloudWatch CPU/network, cost, plus GitHub signals (last commit, PR status, whether the branch still exists, last CI run).
-- **ASSESS** — an LLM reads only the evidence and returns a typed `Recommendation` (`keep` / `investigate_more` / `stop`) with a reason and confidence.
-- **APPROVAL** — human-in-the-loop gate (Slack approval planned).
-- **EXECUTE** — perform the approved action (stop, never terminate).
-- **VERIFY** — confirm the resource reached the expected state.
+- **DETECT** — list EC2 instances, EBS volumes and Elastic IPs; rank by *wasted* spend, not total spend.
+- **INVESTIGATE** — CloudWatch CPU/network and cost, plus GitHub signals (last commit, PR status, whether the branch still exists, last CI run).
+- **ASSESS** — an LLM reads only the evidence and returns a typed `Recommendation` (`keep` / `investigate_more` / `stop` / `retire`) with a reason and confidence. A deterministic rules engine sees the same evidence and takes over whenever the model is disabled or fails.
+- **POLICY** — deterministic risk scoring and hard safety gates. No LLM.
+- **PLAN** — expands a `retire` into a dependency-ordered teardown.
+- **APPROVAL** — human-in-the-loop gate via LangGraph `interrupt()`, answerable from the UI or from Slack.
+- **EXECUTE / VERIFY / ROLLBACK** — perform the approved steps, confirm the end state, undo on failure.
+- **RECORD** — persist the run, the decision and the full reasoning trail to SQLite.
 
-Deliberate safety stance already visible in the code: the model is **forbidden from recommending deletion or termination** (`graph/nodes/assess.py`), and the only executable action is `stop`.
+**The core insight.** Stopping an EC2 instance does not stop the bill: its EBS volumes and its
+public IPv4 keep charging. A stopped `t3.micro` with a 16 GB volume and an Elastic IP still costs
+about **$4.93/month, indefinitely**. Deleting is the only real fix — and deleting is a dependency
+puzzle. You cannot release an Elastic IP while it is still associated, and a volume with
+`DeleteOnTermination=false` outlives the instance it was attached to. Comparable tools *block* on
+dependents; CloudCleaner *orders* them, with a topological sort and cycle detection
+(`policy/dependencies.py`).
+
+**Safety stance.** Dry run is the default. Irreversible steps are labelled as such, and a restore
+point is taken before them. Protected environments and tags hard-block planning outright. Nothing
+executes without an explicit human approval naming the resource.
 
 ### 1.2 Stack
 
 | Layer | Choice |
 |---|---|
-| Frontend | Next.js 16 + React 19 + CopilotKit 1.70 (AG-UI protocol) |
-| Backend | FastAPI + `ag-ui-langgraph`, served by uvicorn on port 8123 |
-| Orchestration | LangGraph 1.1 (`StateGraph`, typed `TypedDict` state) |
-| LLM | Groq via `langchain-groq` (`openai/gpt-oss-20b` default) |
+| Frontend | Next.js 16 + React 19 + Tailwind v4 — a custom dashboard (overview / resources / investigation / history / evaluation) |
+| Backend | FastAPI on port 8123, with an AG-UI/CopilotKit endpoint mounted at `/` |
+| Orchestration | LangGraph 1.1 — 10 nodes, 6 conditional edges, `interrupt()` for approval |
+| Persistence | SQLite — `SqliteSaver` checkpoints plus `runs` / `decisions` / `events` / `snapshots` tables |
+| LLM | Groq via `langchain-groq` (`openai/gpt-oss-20b` default), structured output via `json_schema` |
 | Cloud | boto3 → EC2, CloudWatch, STS (region `us-east-1`) |
+| Notifications | Slack approvals (Block Kit + signature verification), owner email via SES |
 | Schemas | Pydantic v2 (`cloudcleaner/schemas.py`) |
 | Package mgmt | `npm` (frontend), `uv` (backend) |
 
-### 1.3 What is actually implemented
+### 1.3 What is implemented
 
-**Working end-to-end:**
+**The pipeline is real end to end.** No mocked nodes remain: `investigate` queries CloudWatch,
+`execute` calls boto3, `verify` re-reads actual state, and `routing.py` branches on the verdict so a
+`keep` never reaches the approval gate.
 
-- `cloudcleaner/graph/graph.py` — the full 6-node LangGraph compiles and runs (`scripts/run_cloudcleaner.py`).
-- `cloudcleaner/graph/state.py`, `cloudcleaner/schemas.py` — typed state and shared Pydantic contracts (`CloudResource`, `AWSEvidence`, `GitHubEvidence`, `Recommendation`, `ApprovalDecision`).
-- `cloudcleaner/tools/aws/client.py` — boto3 clients for EC2 / CloudWatch / STS.
-- `cloudcleaner/tools/aws/inventory.py` — **real** EC2 listing with pagination, tag flattening into `CloudResource`.
-- `cloudcleaner/tools/aws/metrics.py` — **real** CloudWatch 7-day average CPU and NetworkIn/NetworkOut sums.
-- `cloudcleaner/graph/nodes/detect.py` — real AWS call, picks the first instance found.
-- `cloudcleaner/graph/nodes/assess.py` — real Groq call with `with_structured_output(Recommendation)`.
-- Connection smoke tests: `scripts/test_aws_connection.py`, `test_aws_inventory.py`, `test_aws_metrics.py`, `test_groq_connection.py`.
-
-**Stubbed / mocked (known gaps):**
-
-| Gap | File | Note |
+| Area | Where | What it does |
 |---|---|---|
-| Evidence is hardcoded | `graph/nodes/investigate.py` | Returns fixed AWS + GitHub evidence; does **not** call the real `metrics.py` it already has |
-| Approval is auto-approve | `graph/nodes/approval.py` | Always returns `approve` by `demo-user` |
-| Execute is a print | `graph/nodes/execute.py` | Returns `"MOCK: EC2 instance stopped."` |
-| Verify always passes | `graph/nodes/verify.py` | Hardcoded `True` |
-| No conditional routing | `graph/routing.py` | Empty — graph is a straight line, so `keep` still flows into approve/execute |
-| GitHub tools | `tools/github/*.py` | All empty files |
-| Slack tools | `tools/slack/*.py` | All empty files |
-| Policy engine | `policy/risk.py`, `policy/safety.py` | Empty — the deterministic safety layer promised in the dev guide doesn't exist yet |
-| Evidence collector/formatter | `evidence/*.py` | Empty (also note the typo: `evidence/__init.py` should be `__init__.py`) |
-| Storage / memory | `storage/repository.py` | Empty |
-| AWS cost / volumes / EIPs / actions | `tools/aws/cost.py`, `volumes.py`, `addresses.py`, `actions.py`, `history.py` | Empty |
-| Tests | `tests/*.py` | All four test files are empty |
+| Dependency-ordered teardown | `policy/dependencies.py` | Kahn's algorithm with cycle detection — the differentiator |
+| Cost model | `tools/aws/cost.py` | AWS Price List lookups with local fallbacks; separates cost-while-stopped from cost-while-running |
+| Deterministic policy | `policy/risk.py`, `policy/safety.py` | Risk scoring and hard gates; runs at assess time *and* again at execute time |
+| Inventory | `tools/aws/inventory.py`, `volumes.py`, `addresses.py` | Paginated EC2, EBS and Elastic IP listing |
+| Metrics | `tools/aws/metrics.py` | CloudWatch CPU, network, and an idle-days lookback |
+| GitHub evidence | `tools/github/` | Commits, branches, pull requests, CI runs |
+| Slack + email | `tools/slack/`, `tools/email/` | Approval messages, interaction callbacks, owner notification |
+| Long-term memory | `storage/db.py`, `repository.py` | Run history, prior human decisions fed back into the prompt, self-migrating schema |
+| Monitoring | `monitoring.py` | Scheduled re-scan loop, also triggerable over HTTP |
+| CLI | `cli.py` | `scan`, `sweep`, `investigate`, `history`, `doctor`, `serve` |
+| Offline demo | `fixtures/demo.py` | `CLOUDCLEANER_PROVIDER=fixture` runs the whole graph with no AWS account |
+| Tests | `tests/` | 108 passing, including Hypothesis property tests over the dependency graph |
 
-**Biggest structural gap:** the frontend is still the **CopilotKit starter demo**. `agent/main.py` serves `src.agent.graph` — a todo-list / flight-search / A2UI demo agent on `ChatOpenAI` — not `cloudcleaner.graph.graph`. Nothing in `app/src/src/` mentions CloudCleaner. The agent and the UI are two disconnected projects right now.
+**Known gaps.** The frontend still carries unused CopilotKit starter code
+(`app/src/app/declarative-generative-ui/`, the a2ui hooks, `agent/src/`) that the CloudCleaner UI
+never imports. `agent/main.py` and `cloudcleaner/server.py` are two divergent copies of the API —
+`npm run dev` serves the first, `cloudcleaner serve` the second. And nothing has been run against a
+real AWS account: every boto3 path is exercised through fixtures only.
 
 ### 1.4 Running it
 
+Put credentials in `.env` at the repo root (see `.env.example`): `GROQ_API_KEY`, AWS credentials,
+and optionally `GITHUB_TOKEN` and Slack tokens.
+
 ```bash
-# frontend + starter agent together
-cd app && npm install && npm run dev          # UI on :3000, agent on :8123
+# everything: UI on :3000, API on :8123
+cd app && npm install && npm run dev
 
 # backend only
-cd agent && uv sync
-uv run python -m scripts.test_aws_connection  # check AWS creds
-uv run python -m scripts.run_cloudcleaner     # run the CloudCleaner graph
-uv run pytest                                 # (no tests written yet)
+cd agent && uv sync --dev
+uv run python -m cloudcleaner.cli doctor        # check credentials and config
+uv run python -m cloudcleaner.cli scan          # list resources and what they cost
+uv run python -m cloudcleaner.cli sweep         # assess everything, plan the teardowns
+uv run pytest                                   # 108 tests
 ```
+
+No AWS account? Every command works offline against the demo fixtures:
+
+```bash
+CLOUDCLEANER_PROVIDER=fixture uv run python -m cloudcleaner.cli sweep
+```
+
+Published to PyPI as `cloudcleaner-agent`, which installs the same commands as `cloudcleaner`.
 
 Full setup, dependency and convention rules: [`agent/README.md`](agent/README.md).
 
@@ -241,17 +263,28 @@ the deck explaining the choice, and AgentCore deployment is an obvious roadmap s
 
 ```
 CloudCleaner/
+├── agent/
+│   ├── cloudcleaner/
+│   │   ├── graph/               # LangGraph state, 10 nodes, conditional routing
+│   │   ├── policy/              # dependencies (teardown order), risk, safety, approval
+│   │   ├── tools/               # aws/, github/, slack/, email/, provider dispatch
+│   │   ├── storage/             # SQLite schema + repository (history, memory)
+│   │   ├── evidence/            # reasoning-trail collector
+│   │   ├── fixtures/demo.py     # offline demo account
+│   │   ├── cli.py               # scan / sweep / investigate / history / doctor / serve
+│   │   └── server.py            # FastAPI app used by `cloudcleaner serve`
+│   ├── scripts/                 # connection smoke tests + evaluation harness
+│   ├── tests/                   # 108 tests
+│   ├── main.py                  # FastAPI + AG-UI endpoint used by `npm run dev`
+│   └── pyproject.toml           # published to PyPI as cloudcleaner-agent
 ├── app/
-│   ├── src/                     # Next.js frontend (still the CopilotKit starter)
-│   ├── agent/
-│   │   ├── cloudcleaner/        # our agent: graph/, tools/, policy/, evidence/, storage/
-│   │   ├── src/                 # CopilotKit starter agent (served by main.py today)
-│   │   ├── scripts/             # connection tests + graph runner
-│   │   ├── tests/               # empty
-│   │   └── main.py              # FastAPI + AG-UI endpoint
-│   ├── .env.example
+│   ├── src/
+│   │   ├── app/page.tsx         # the dashboard
+│   │   ├── components/cloudcleaner/   # views, shell, primitives, pixel art
+│   │   └── lib/api.ts           # typed client for the FastAPI backend
+│   ├── scripts/                 # logo + slide-figure generators
 │   └── package.json
-├── infra/                       # empty
+├── .env.example
 └── references/                  # hackathon PDFs (source for Part 2)
 ```
 
