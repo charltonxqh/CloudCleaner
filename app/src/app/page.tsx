@@ -354,6 +354,7 @@ export default function Home() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <ViewHeader
+          view={view}
           title={TITLE[view]}
           subtitle={SUBTITLE[view]}
           actions={actions}

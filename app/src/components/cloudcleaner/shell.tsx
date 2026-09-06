@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 
+import { TabArt } from "./tab-art";
+
 /** 24x24 pixel logo — see app/scripts/make_logo.py, which also emits the PNGs. */
 type P = [number, number];
 const L_CLOUD: P[] = [[4,9], [5,9], [3,10], [4,10], [5,10], [6,10], [9,10], [10,10], [2,11], [3,11], [4,11], [5,11], [6,11], [7,11], [8,11], [9,11], [10,11], [11,11], [1,12], [2,12], [3,12], [4,12], [5,12], [6,12], [7,12], [8,12], [9,12], [10,12], [11,12], [12,12], [1,13], [2,13], [3,13], [4,13], [5,13], [6,13], [7,13], [8,13], [9,13], [10,13], [11,13], [12,13], [2,14], [3,14], [4,14], [5,14], [6,14], [7,14], [8,14], [9,14], [10,14], [11,14]];
@@ -148,20 +150,23 @@ export function Sidebar({
 }
 
 export function ViewHeader({
-  title, subtitle, actions,
-}: { title: string; subtitle?: string; actions?: ReactNode }) {
+  view, title, subtitle, actions,
+}: { view?: ViewId; title: string; subtitle?: string; actions?: ReactNode }) {
   return (
     <header
       className="flex shrink-0 flex-wrap items-center justify-between gap-4 px-6 pb-4 pt-5"
       style={{ background: "var(--bg)" }}
     >
-      <div className="min-w-0">
+      <div className="flex min-w-0 items-center gap-4">
+        {view && <TabArt view={view} />}
+        <div className="min-w-0">
         <h1 className="pixel-type truncate text-[34px] leading-tight">{title}</h1>
         {subtitle && (
           <p className="mt-1 text-[15px] leading-snug" style={{ color: "var(--fg-muted)" }}>
             {subtitle}
           </p>
         )}
+        </div>
       </div>
 
       {actions && <div className="flex items-center gap-2">{actions}</div>}
