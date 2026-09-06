@@ -41,7 +41,7 @@ export function Tag({
   return (
     <span
       title={title}
-      className="pixel-sm mono inline-flex shrink-0 items-center gap-1.5 px-2 py-[3px] text-[10px] font-semibold uppercase tracking-wide"
+      className="pixel-sm mono inline-flex shrink-0 items-center gap-1.5 px-2.5 py-[4px] text-[12px] font-semibold uppercase tracking-wide"
       style={{ color: t.fg, background: t.bg }}
     >
       {dot && (
@@ -72,7 +72,7 @@ export function Stat({
         {value}
       </div>
       {hint && (
-        <div className="mt-1 text-[11px] leading-tight" style={{ color: "var(--fg-faint)" }}>
+        <div className="mt-1 text-[12.5px] leading-tight" style={{ color: "var(--fg-faint)" }}>
           {hint}
         </div>
       )}
@@ -84,7 +84,7 @@ export function Empty({ icon, children }: { icon?: ReactNode; children: ReactNod
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
       {icon && <div style={{ color: "var(--fg-faint)", opacity: 0.5 }}>{icon}</div>}
-      <p className="max-w-[38ch] text-[13px] leading-relaxed" style={{ color: "var(--fg-faint)" }}>
+      <p className="max-w-[38ch] text-[14px] leading-relaxed" style={{ color: "var(--fg-faint)" }}>
         {children}
       </p>
     </div>
@@ -122,7 +122,7 @@ export function Button({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="pixel-btn pixel-sm shrink-0 px-4 text-[12px] font-semibold"
+      className="pixel-btn pixel-sm shrink-0 px-4 text-[13.5px] font-semibold"
       style={{
         ...styles,
         minHeight: 36,

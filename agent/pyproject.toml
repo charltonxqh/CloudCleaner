@@ -1,5 +1,5 @@
 [project]
-name = "cloudcleaner"
+name = "cloudcleaner-agent"
 version = "0.1.0"
 description = "Finds idle AWS resources, proves they are unused, and plans a dependency-ordered teardown behind a human approval gate."
 readme = "README.md"
@@ -41,7 +41,7 @@ server = [
 openai = ["langchain-openai==1.1.9", "openai==1.109.1"]
 anthropic = ["langchain-anthropic==1.4.1"]
 tracing = ["langsmith==0.7.33"]
-all = ["cloudcleaner[server,openai,anthropic,tracing]"]
+all = ["cloudcleaner-agent[server,openai,anthropic,tracing]"]
 
 [project.scripts]
 cloudcleaner = "cloudcleaner.cli:main"

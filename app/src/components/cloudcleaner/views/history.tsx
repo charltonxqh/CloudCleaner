@@ -97,7 +97,7 @@ function Summary({ totals }: { totals: HistoryTotals }) {
               borderTop: `3px solid ${c.accent}`,
             }}
           >
-            <div className="label text-[11px]" style={{ color: c.accent }}>{c.label}</div>
+            <div className="label" style={{ color: c.accent }}>{c.label}</div>
 
             <div
               className="num mt-2.5 text-[27px] font-semibold leading-none"
@@ -108,7 +108,7 @@ function Summary({ totals }: { totals: HistoryTotals }) {
 
             <div className="pixel-rule mt-3" style={{ color: c.accent }} />
 
-            <div className="mt-2.5 text-[11px]" style={{ color: "var(--fg-faint)" }}>
+            <div className="mt-2.5 text-[14px]" style={{ color: "var(--fg-muted)" }}>
               {c.sub}
             </div>
           </div>
@@ -157,7 +157,7 @@ export function HistoryView({
 
       {totals && totals.realised_monthly === 0 && totals.simulated_monthly > 0 && (
         <p
-          className="pixel-sm px-4 py-3 text-[12px] leading-relaxed"
+          className="pixel-sm px-4 py-3 text-[14.5px] leading-relaxed"
           style={{
             background: "var(--warn-dim)",
             color: "var(--warn)",
@@ -176,7 +176,7 @@ export function HistoryView({
         {!runs.length ? (
           <Empty>No runs recorded yet. Investigate a resource and its outcome lands here.</Empty>
         ) : (
-          <table className="w-full border-collapse text-[13px]">
+          <table className="w-full border-collapse text-[15px]">
             <thead className="sticky top-0 z-10">
               <tr style={{ background: "var(--surface-2)" }}>
                 {["", "When", "Resource", "Verdict", "Outcome", "$/mo"].map((h, i) => (
@@ -263,7 +263,7 @@ export function HistoryView({
                         <td colSpan={6} style={{ background: "var(--bg)" }}>
                           <div className="px-12 py-4">
                             <div
-                              className="mb-3 text-[12px] font-semibold uppercase tracking-[0.08em]"
+                              className="mb-3 text-[13.5px] font-semibold uppercase tracking-[0.08em]"
                               style={{ color: "var(--fg-muted)" }}
                             >
                               Agent trace
@@ -271,14 +271,14 @@ export function HistoryView({
 
                             {loading === r.run_id ? (
                               <p
-                                className="text-[13px] pulse"
+                                className="text-[14px] pulse"
                                 style={{ color: "var(--fg-faint)" }}
                               >
                                 Loading the reasoning…
                               </p>
                             ) : !events?.length ? (
                               <p
-                                className="text-[13px]"
+                                className="text-[14px]"
                                 style={{ color: "var(--fg-faint)" }}
                               >
                                 No reasoning was recorded for this run.
@@ -291,7 +291,7 @@ export function HistoryView({
                                     className="flex items-baseline gap-3 py-1"
                                   >
                                     <span
-                                      className="mono w-[100px] shrink-0 text-[12px]"
+                                      className="mono w-[100px] shrink-0 text-[13.5px]"
                                       style={{ color: "var(--fg-muted)" }}
                                     >
                                       {e.node}
@@ -304,7 +304,7 @@ export function HistoryView({
                                     </span>
 
                                     <span
-                                      className="min-w-0 flex-1 text-[13px] leading-snug"
+                                      className="min-w-0 flex-1 text-[14px] leading-snug"
                                       style={{
                                         color: "var(--fg)",
                                         overflowWrap: "anywhere",

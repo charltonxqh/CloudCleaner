@@ -35,11 +35,11 @@ const TYPE_STYLE: Record<string, { fg: string; bg: string; px: [number, number][
 function TypeBadge({ type }: { type: string }) {
   const s = TYPE_STYLE[type];
   const label = TYPE_LABEL[type] ?? type.toUpperCase();
-  if (!s) return <span className="mono text-[12px]">{label}</span>;
+  if (!s) return <span className="mono text-[13.5px]">{label}</span>;
 
   return (
     <span
-      className="pixel-sm mono inline-flex items-center gap-1.5 px-1.5 py-[3px] text-[11px] font-semibold"
+      className="pixel-sm mono inline-flex items-center gap-1.5 px-1.5 py-[3px] text-[12.5px] font-semibold"
       style={{ color: s.fg, background: s.bg }}
     >
       <svg viewBox="0 0 7 7" width="11" height="11" shapeRendering="crispEdges" aria-hidden="true">
@@ -116,7 +116,7 @@ export function ResourcesView({
               key={f.id}
               onClick={() => setFilter(f.id)}
               aria-pressed={filter === f.id}
-              className="pixel-sm px-3 text-[13px] transition-colors duration-150"
+              className="pixel-sm px-3 text-[14px] transition-colors duration-150"
               style={{
                 minHeight: 34,
                 background: filter === f.id ? "var(--btn)" : "var(--surface-2)",
@@ -136,7 +136,7 @@ export function ResourcesView({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search id, name or tag…"
-          className="pixel-sm mono ml-auto px-3 text-[13px] outline-none"
+          className="pixel-sm mono ml-auto px-3 text-[14px] outline-none"
           style={{
             width: compact ? 190 : 250,
             minHeight: 34,
@@ -146,7 +146,7 @@ export function ResourcesView({
           }}
         />
 
-        <span className="num text-[12px]" style={{ color: "var(--fg-faint)" }}>
+        <span className="num text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
           {rows.length} · {money(shown)}/mo
         </span>
       </div>
@@ -155,7 +155,7 @@ export function ResourcesView({
         {rows.length === 0 ? (
           <Empty>No resources match that filter.</Empty>
         ) : (
-          <table className="w-full border-collapse text-[14px]">
+          <table className="w-full border-collapse text-[15px]">
             <colgroup>
               {(compact
                 ? ["auto", "128px", "132px", "116px"]
@@ -210,12 +210,12 @@ export function ResourcesView({
                     }}
                   >
                     <td className="px-4 py-2.5">
-                      <div className="mono truncate text-[13px]"
+                      <div className="mono truncate text-[14px]"
                            style={{ color: isSelected ? "var(--fg)" : "var(--fg)" }}>
                         {r.resource_id}
                       </div>
                       <div
-                        className={`mt-1 truncate text-[12px] ${isBusy ? "pulse" : ""}`}
+                        className={`mt-1 truncate text-[13.5px] ${isBusy ? "pulse" : ""}`}
                         style={{ color: isBusy ? "var(--primary)" : "var(--fg-faint)" }}
                       >
                         {isBusy
@@ -240,7 +240,7 @@ export function ResourcesView({
                     </td>
 
                     {!compact && (
-                      <td className="mono px-4 py-2.5 text-[12px]" style={{ color: "var(--fg-muted)" }}>
+                      <td className="mono px-4 py-2.5 text-[13.5px]" style={{ color: "var(--fg-muted)" }}>
                         {r.attached_to ?? <span style={{ color: "var(--fg-faint)" }} title="not attached to anything">—</span>}
                       </td>
                     )}
@@ -249,13 +249,13 @@ export function ResourcesView({
                       {verdict ? (
                         <Tag tone={VERDICT_TONE[verdict]}>{verdict.replace("_", " ")}</Tag>
                       ) : (
-                        <span className="text-[12px]" style={{ color: "var(--fg-faint)" }}>—</span>
+                        <span className="text-[13.5px]" style={{ color: "var(--fg-faint)" }}>—</span>
                       )}
                     </td>
 
                     <td className="px-4 py-2.5 text-right">
                       <div
-                        className="num text-[14px]"
+                        className="num text-[15px]"
                         style={{ color: r.billing_while_stopped ? "var(--danger)" : "var(--fg)" }}
                       >
                         {money(r.estimated_monthly_cost)}

@@ -367,7 +367,7 @@ wheels = [
 ]
 
 [[package]]
-name = "cloudcleaner"
+name = "cloudcleaner-agent"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
@@ -424,7 +424,7 @@ requires-dist = [
     { name = "ag-ui-langgraph", extras = ["fastapi"], marker = "extra == 'server'", specifier = "==0.0.43" },
     { name = "ag-ui-protocol", marker = "extra == 'server'", specifier = "==0.1.19" },
     { name = "boto3", specifier = ">=1.43.86" },
-    { name = "cloudcleaner", extras = ["server", "openai", "anthropic", "tracing"], marker = "extra == 'all'" },
+    { name = "cloudcleaner-agent", extras = ["server", "openai", "anthropic", "tracing"], marker = "extra == 'all'" },
     { name = "copilotkit", marker = "extra == 'server'", specifier = "==0.1.96" },
     { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.115.5,<1.0.0" },
     { name = "langchain", specifier = "==1.2.15" },

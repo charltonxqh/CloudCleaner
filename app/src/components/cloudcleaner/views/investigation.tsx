@@ -35,14 +35,14 @@ function Signal({
 }: { label: string; value: string; tone?: string; note?: string }) {
   return (
     <div className="flex items-start gap-3 py-1.5">
-      <span className="w-[105px] shrink-0 text-[12px]" style={{ color: "var(--fg-faint)" }}>
+      <span className="w-[105px] shrink-0 text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
         {label}
       </span>
-      <span className="mono shrink-0 text-[13px]" style={{ color: tone ?? "var(--fg)" }}>
+      <span className="mono shrink-0 text-[14px]" style={{ color: tone ?? "var(--fg)" }}>
         {value}
       </span>
       {note && (
-        <span className="min-w-0 text-[12px] leading-snug" style={{ color: "var(--fg-faint)" }}>
+        <span className="min-w-0 text-[13.5px] leading-snug" style={{ color: "var(--fg-faint)" }}>
           {note}
         </span>
       )}
@@ -82,7 +82,7 @@ function AwsEvidence({ e }: { e: Evidence }) {
 function GithubEvidencePanel({ g }: { g: GitHubEvidence }) {
   if (!g.repo) {
     return (
-      <p className="text-[12px] leading-relaxed" style={{ color: "var(--fg-faint)" }}>
+      <p className="text-[13.5px] leading-relaxed" style={{ color: "var(--fg-faint)" }}>
         No <span className="mono">Repo</span> tag is attached to this resource.
         AWS evidence alone is used for the recommendation.
       </p>
@@ -99,7 +99,7 @@ function GithubEvidencePanel({ g }: { g: GitHubEvidence }) {
           href={`https://github.com/${g.repo}`}
           target="_blank"
           rel="noreferrer"
-          className="mono truncate text-[13px] underline decoration-dotted underline-offset-2"
+          className="mono truncate text-[14px] underline decoration-dotted underline-offset-2"
           style={{ color: "var(--primary)" }}
         >
           {g.repo}
@@ -334,7 +334,7 @@ function Trace({
 
             <div className="min-w-0">
               <div
-                className="text-[13px] font-medium capitalize"
+                className="text-[14px] font-medium capitalize"
                 style={{
                   color: error
                     ? "var(--danger)"
@@ -349,7 +349,7 @@ function Trace({
               </div>
 
               {item.detail && (
-                <div className="mt-0.5 text-[12px] leading-snug" style={{ color: "var(--fg-faint)" }}>
+                <div className="mt-0.5 text-[13.5px] leading-snug" style={{ color: "var(--fg-faint)" }}>
                   {item.detail}
                 </div>
               )}
@@ -391,7 +391,7 @@ export function InvestigationView({
         >
           <div>
             <div className="text-[16px] font-semibold">Investigating resource</div>
-            <div className="mt-1 text-[12px]" style={{ color: "var(--fg-faint)" }}>
+            <div className="mt-1 text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
               Querying AWS, GitHub and lifecycle evidence…
             </div>
           </div>
@@ -452,7 +452,7 @@ export function InvestigationView({
       >
         <div className="min-w-0">
           <div className="mono truncate text-[15px] font-semibold">{r.resource_id}</div>
-          <div className="mt-1 truncate text-[12px]" style={{ color: "var(--fg-muted)" }}>
+          <div className="mt-1 truncate text-[13.5px]" style={{ color: "var(--fg-muted)" }}>
             {r.name || "untagged"} · {r.resource_type.toUpperCase()} · {r.region}
           </div>
         </div>
@@ -474,7 +474,7 @@ export function InvestigationView({
             className="flex flex-wrap items-center justify-between gap-2 px-5 py-2.5"
             style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-2)" }}
           >
-            <span className="text-[12px]" style={{ color: stale ? "var(--warn)" : "var(--fg-faint)" }}>
+            <span className="text-[13.5px]" style={{ color: stale ? "var(--warn)" : "var(--fg-faint)" }}>
               {stale
                 ? "Inventory changed since this investigation."
                 : `Cached investigation · ${
@@ -505,29 +505,29 @@ export function InvestigationView({
                   {rec.action.replace("_", " ")}
                 </Tag>
                 <Tag tone={SEVERITY_TONE[rec.severity]}>{rec.severity} risk</Tag>
-                <span className="num text-[12px]" style={{ color: "var(--fg-muted)" }}>
+                <span className="num text-[13.5px]" style={{ color: "var(--fg-muted)" }}>
                   {Math.round(rec.confidence * 100)}% confidence
                 </span>
               </div>
 
               <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <div className="text-[12px] uppercase tracking-[0.08em]" style={{ color: "var(--fg-faint)" }}>
+                  <div className="text-[13.5px] uppercase tracking-[0.08em]" style={{ color: "var(--fg-faint)" }}>
                     Potential saving
                   </div>
                   <div className="num mt-1 text-[36px] font-semibold leading-none" style={{ color: "var(--ok)" }}>
                     {money(recommendedSaving)}
-                    <span className="ml-1 text-[13px] font-normal" style={{ color: "var(--fg-faint)" }}>
+                    <span className="ml-1 text-[14px] font-normal" style={{ color: "var(--fg-faint)" }}>
                       /mo
                     </span>
                   </div>
-                  <div className="num mt-2 text-[13px]" style={{ color: "var(--fg-muted)" }}>
+                  <div className="num mt-2 text-[14px]" style={{ color: "var(--fg-muted)" }}>
                     {money(recommendedSaving * 12)} per year
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <div className="text-[12px]" style={{ color: "var(--fg-faint)" }}>
+                  <div className="text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
                     Current → after action
                   </div>
                   <div className="num mt-1 text-[17px] font-semibold">
@@ -547,7 +547,7 @@ export function InvestigationView({
             style={{ borderBottom: "1px solid var(--border)" }}
           >
             <h2 className="text-[15px] font-semibold">Why CloudCleaner flagged it</h2>
-            <p className="mt-2 text-[13px] leading-relaxed" style={{ color: "var(--fg-muted)" }}>
+            <p className="mt-2 text-[14px] leading-relaxed" style={{ color: "var(--fg-muted)" }}>
               {rec.reason}
             </p>
 
@@ -560,12 +560,12 @@ export function InvestigationView({
                   borderRadius: "var(--radius)",
                 }}
               >
-                <summary className="cursor-pointer text-[13px] font-medium">
+                <summary className="cursor-pointer text-[14px] font-medium">
                   AWS evidence
                 </summary>
                 <div className="mt-3">
                   {evidence ? <AwsEvidence e={evidence} /> : (
-                    <p className="text-[12px]" style={{ color: "var(--fg-faint)" }}>
+                    <p className="text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
                       No AWS evidence available.
                     </p>
                   )}
@@ -580,12 +580,12 @@ export function InvestigationView({
                   borderRadius: "var(--radius)",
                 }}
               >
-                <summary className="cursor-pointer text-[13px] font-medium">
+                <summary className="cursor-pointer text-[14px] font-medium">
                   Code & CI/CD evidence
                 </summary>
                 <div className="mt-3">
                   {github ? <GithubEvidencePanel g={github} /> : (
-                    <p className="text-[12px]" style={{ color: "var(--fg-faint)" }}>
+                    <p className="text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
                       No code evidence available.
                     </p>
                   )}
@@ -608,13 +608,13 @@ export function InvestigationView({
 
             <ul className="mt-3 space-y-1">
               {plan.blocked.map((b) => (
-                <li key={b} className="text-[13px]" style={{ color: "var(--fg-muted)" }}>
+                <li key={b} className="text-[14px]" style={{ color: "var(--fg-muted)" }}>
                   · {b}
                 </li>
               ))}
             </ul>
 
-            <p className="mt-3 text-[12px]" style={{ color: "var(--fg-faint)" }}>
+            <p className="mt-3 text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
               Deterministic rules, evaluated outside the model. Neither the agent nor a human
               can override them here.
             </p>
@@ -627,7 +627,7 @@ export function InvestigationView({
             style={{ borderBottom: "1px solid var(--border)" }}
           >
             <h2 className="text-[15px] font-semibold">Teardown plan</h2>
-            <p className="mt-2 text-[13px]" style={{ color: "var(--fg-muted)" }}>
+            <p className="mt-2 text-[14px]" style={{ color: "var(--fg-muted)" }}>
               No teardown is required for the current recommendation.
             </p>
 
@@ -635,7 +635,7 @@ export function InvestigationView({
               <Button onClick={onForcePlan}>Plan teardown anyway</Button>
             </div>
 
-            <p className="mt-2 text-[12px]" style={{ color: "var(--fg-faint)" }}>
+            <p className="mt-2 text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
               Overrules the model, not the safety policy.
             </p>
           </section>
@@ -648,7 +648,7 @@ export function InvestigationView({
           >
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-[15px] font-semibold">Teardown plan</h2>
-              <span className="text-[11px] uppercase tracking-[0.08em]" style={{ color: "var(--fg-faint)" }}>
+              <span className="text-[12.5px] uppercase tracking-[0.08em]" style={{ color: "var(--fg-faint)" }}>
                 dependency ordered
               </span>
             </div>
@@ -679,27 +679,27 @@ export function InvestigationView({
                   />
 
                   <div className="min-w-0 flex-1">
-                    <div className="mono text-[13px]" style={{ color: "var(--fg)" }}>
+                    <div className="mono text-[14px]" style={{ color: "var(--fg)" }}>
                       {s.action.replaceAll("_", " ")}
                     </div>
-                    <div className="mt-0.5 mono text-[11px]" style={{ color: "var(--fg-faint)" }}>
+                    <div className="mt-0.5 mono text-[12.5px]" style={{ color: "var(--fg-faint)" }}>
                       {s.resource_id}
                     </div>
-                    <div className="mt-1 text-[12px] leading-snug" style={{ color: "var(--fg-muted)" }}>
+                    <div className="mt-1 text-[13.5px] leading-snug" style={{ color: "var(--fg-muted)" }}>
                       {s.reason}
                     </div>
                   </div>
 
                   <div className="shrink-0 text-right">
                     <div
-                      className="num text-[13px]"
+                      className="num text-[14px]"
                       style={{ color: s.monthly_saving ? "var(--ok)" : "var(--fg-faint)" }}
                     >
                       {s.monthly_saving ? money(s.monthly_saving) : "—"}
                     </div>
 
                     {!s.reversible && (
-                      <div className="mt-1 text-[10px] uppercase" style={{ color: "var(--danger)" }}>
+                      <div className="mt-1 text-[12px] uppercase" style={{ color: "var(--danger)" }}>
                         irreversible
                       </div>
                     )}
@@ -715,12 +715,12 @@ export function InvestigationView({
                 borderRadius: "var(--radius)",
               }}
             >
-              <span className="text-[12px]" style={{ color: "var(--fg-faint)" }}>
+              <span className="text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
                 {irreversible} of {plan.steps.length} steps cannot be undone
               </span>
               <span className="num text-[17px] font-semibold" style={{ color: "var(--ok)" }}>
                 {money(total)}
-                <span className="text-[11px] font-normal">/mo</span>
+                <span className="text-[12.5px] font-normal">/mo</span>
               </span>
             </div>
           </section>
@@ -738,7 +738,7 @@ export function InvestigationView({
             {decision === "reject" && <Tag tone="muted" dot>rejected</Tag>}
           </div>
 
-          <p className="mt-1 text-[12px]" style={{ color: "var(--fg-faint)" }}>
+          <p className="mt-1 text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
             This updates automatically when the Slack approval workflow changes.
           </p>
 
