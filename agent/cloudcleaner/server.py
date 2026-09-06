@@ -1,12 +1,15 @@
 """FastAPI surface. Lives in the package so `cloudcleaner serve` works from
-an installed copy, not just from a checkout."""
+an installed copy, not just from a checkout.
 
+agent/main.py is a thin shim over this module, so `npm run dev` and
+`cloudcleaner serve` are guaranteed to expose the same API.
+"""
+
+import asyncio
+import hmac
 import os
 import uuid
 import warnings
-from pathlib import Path
-
-from dotenv import load_dotenv
 
 # config discovers .env on import; nothing to load by hand here
 import cloudcleaner.config  # noqa: F401
@@ -23,6 +26,11 @@ from pydantic import BaseModel
 from cloudcleaner.evidence.collector import log
 from cloudcleaner.graph.graph import graph
 from cloudcleaner.graph.nodes.detect import detect_node
+from cloudcleaner.monitoring import (
+    cached_monitor_thread_id,
+    monitoring_status,
+    run_monitor_cycle,
+)
 from cloudcleaner.storage.repository import (
     evaluation_metrics,
     event_stats,
@@ -52,6 +60,7 @@ app.add_middleware(
 
 
 _scans: dict[str, dict] = {}
+_monitor_task: asyncio.Task | None = None
 
 
 def _scan(refresh: bool = False):
@@ -76,6 +85,74 @@ def _find_resource(resource_id: str):
     scan = _scan()
     pool = (scan.get("inventory") or []) + (scan.get("orphans") or [])
     return next((r for r in pool if r.resource_id == resource_id), None)
+
+
+def _monitor_reassess_minutes() -> float:
+    return max(
+        0.0,
+        float(os.getenv("CLOUDCLEANER_MONITOR_REASSESS_MINUTES", "60")),
+    )
+
+
+def _run_monitor_cycle():
+    return run_monitor_cycle(
+        _scan(refresh=True),
+        _owner_email,
+        reassess_minutes=_monitor_reassess_minutes(),
+    )
+
+
+def _monitor_interval_seconds() -> float:
+    minutes = float(os.getenv("CLOUDCLEANER_MONITOR_INTERVAL_MINUTES", "0"))
+    return max(0.0, minutes * 60)
+
+
+def _verify_monitor_key(request: Request) -> None:
+    expected = os.getenv("CLOUDCLEANER_MONITOR_API_KEY")
+    if not expected:
+        return
+
+    supplied = request.headers.get("x-cloudcleaner-monitor-key", "")
+    if not hmac.compare_digest(supplied, expected):
+        raise HTTPException(status_code=401, detail="invalid monitoring API key")
+
+
+async def _monitor_loop():
+    interval = _monitor_interval_seconds()
+    if interval <= 0:
+        return
+
+    if os.getenv("CLOUDCLEANER_MONITOR_ON_STARTUP", "false").lower() == "true":
+        try:
+            await asyncio.to_thread(_run_monitor_cycle)
+        except Exception:
+            pass
+
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            await asyncio.to_thread(_run_monitor_cycle)
+        except Exception:
+            pass
+
+
+@app.on_event("startup")
+async def start_monitoring():
+    global _monitor_task
+    if _monitor_interval_seconds() > 0:
+        _monitor_task = asyncio.create_task(_monitor_loop())
+
+
+@app.on_event("shutdown")
+async def stop_monitoring():
+    global _monitor_task
+    if _monitor_task is not None:
+        _monitor_task.cancel()
+        try:
+            await _monitor_task
+        except asyncio.CancelledError:
+            pass
+        _monitor_task = None
 
 
 def _resume_slack_approval(interaction: dict):
@@ -233,6 +310,49 @@ def _thread_status(thread_id: str) -> dict:
     }
 
 
+def _investigation_from_thread(thread_id: str) -> dict:
+    config = {"configurable": {"thread_id": thread_id}}
+
+    try:
+        snapshot = graph.get_state(config)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"unknown thread {thread_id}") from e
+
+    state = snapshot.values or {}
+    resource = state.get("resource")
+    if resource is None:
+        raise HTTPException(status_code=404, detail=f"unknown thread {thread_id}")
+
+    resource_id = resource.resource_id
+    run_id = state.get("run_id")
+    tasks = getattr(snapshot, "tasks", ()) or ()
+    awaiting_approval = any(
+        bool(getattr(task, "interrupts", ()))
+        for task in tasks
+    )
+
+    if run_id:
+        reasoning = events_for(run_id)
+    else:
+        reasoning = [
+            event
+            for event in log.events
+            if event.get("resource_id") in (resource_id, "-")
+        ]
+
+    return {
+        "thread_id": thread_id,
+        "resource": resource.model_dump(),
+        "evidence": _dump_model(state.get("aws_evidence")),
+        "github": _dump_model(state.get("github_evidence")),
+        "recommendation": _dump_model(state.get("recommendation")),
+        "plan": _dump_model(state.get("plan")),
+        "awaiting_approval": awaiting_approval,
+        "approval_request": None,
+        "reasoning": reasoning,
+    }
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -306,6 +426,14 @@ async def thread_status(thread_id: str):
     return _thread_status(thread_id)
 
 
+@app.get("/monitor/resources/{resource_id}/investigation")
+async def monitored_investigation(resource_id: str):
+    thread_id = cached_monitor_thread_id(resource_id)
+    if not thread_id:
+        raise HTTPException(status_code=404, detail="no monitored investigation cached")
+    return _investigation_from_thread(thread_id)
+
+
 @app.get("/history")
 async def history(limit: int = 50):
     return {"runs": list_runs(limit), "totals": totals(), "stats": event_stats()}
@@ -372,6 +500,32 @@ async def sweep():
     }
 
 
+@app.post("/monitor/run", status_code=202)
+async def monitor_run(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    wait: bool = False,
+):
+    """Trigger one monitoring cycle. EventBridge uses the non-blocking default."""
+    _verify_monitor_key(request)
+
+    if wait:
+        return await asyncio.to_thread(_run_monitor_cycle)
+
+    background_tasks.add_task(_run_monitor_cycle)
+    return {"status": "accepted"}
+
+
+@app.get("/monitor/status")
+async def monitor_status():
+    return {
+        **monitoring_status(),
+        "enabled": _monitor_interval_seconds() > 0,
+        "interval_minutes": _monitor_interval_seconds() / 60,
+        "reassess_minutes": _monitor_reassess_minutes(),
+    }
+
+
 @app.post("/approve")
 async def approve(req: ApproveRequest):
     config = {"configurable": {"thread_id": req.thread_id}}
@@ -422,7 +576,12 @@ add_langgraph_fastapi_endpoint(
 
 
 def main():
-    uvicorn.run("cloudcleaner.server:app", host="0.0.0.0", port=int(os.getenv("PORT", "8123")), reload=True)
+    uvicorn.run(
+        "cloudcleaner.server:app",
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "8123")),
+        reload=True,
+    )
 
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")

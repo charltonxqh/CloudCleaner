@@ -77,9 +77,8 @@ executes without an explicit human approval naming the resource.
 
 **Known gaps.** The frontend still carries unused CopilotKit starter code
 (`app/src/app/declarative-generative-ui/`, the a2ui hooks, `agent/src/`) that the CloudCleaner UI
-never imports. `agent/main.py` and `cloudcleaner/server.py` are two divergent copies of the API —
-`npm run dev` serves the first, `cloudcleaner serve` the second. And nothing has been run against a
-real AWS account: every boto3 path is exercised through fixtures only.
+never imports. And nothing has been run against a real AWS account: every boto3 path is exercised
+through fixtures only.
 
 ### 1.4 Running it
 
@@ -272,10 +271,10 @@ CloudCleaner/
 │   │   ├── evidence/            # reasoning-trail collector
 │   │   ├── fixtures/demo.py     # offline demo account
 │   │   ├── cli.py               # scan / sweep / investigate / history / doctor / serve
-│   │   └── server.py            # FastAPI app used by `cloudcleaner serve`
+│   │   └── server.py            # the FastAPI app (both entrypoints serve this)
 │   ├── scripts/                 # connection smoke tests + evaluation harness
 │   ├── tests/                   # 108 tests
-│   ├── main.py                  # FastAPI + AG-UI endpoint used by `npm run dev`
+│   ├── main.py                  # thin shim over server.py, run by `npm run dev`
 │   └── pyproject.toml           # published to PyPI as cloudcleaner-agent
 ├── app/
 │   ├── src/

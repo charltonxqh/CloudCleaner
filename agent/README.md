@@ -142,12 +142,13 @@ pip install 'cloudcleaner-agent[all]'       # plus OpenAI, Anthropic, LangSmith
 
 ## Coverage
 
-**Today:** EC2 instances, EBS volumes, Elastic IPs, snapshots. CloudWatch usage,
+**Today:** EC2 instances, EBS volumes, Elastic IPs. CloudWatch usage,
 cost attribution, and GitHub signals — last commit, branch existence, PR status,
 CI runs — so the agent can tell whether the project that owns a resource is
 still alive.
 
-**Not yet:** RDS, NAT gateways, load balancers, ElastiCache, multi-account.
+**Not yet:** snapshots are listed and priced, but the scan does not yet surface them.
+RDS, NAT gateways, load balancers, ElastiCache and multi-account are not covered.
 
 ## Requirements
 
