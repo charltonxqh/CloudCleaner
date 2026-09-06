@@ -68,7 +68,6 @@ Deliberate safety stance already visible in the code: the model is **forbidden f
 | Storage / memory | `storage/repository.py` | Empty |
 | AWS cost / volumes / EIPs / actions | `tools/aws/cost.py`, `volumes.py`, `addresses.py`, `actions.py`, `history.py` | Empty |
 | Tests | `tests/*.py` | All four test files are empty |
-| Docs | `docs/architecture.md`, `agent_flow.md`, `api_contracts.md`, `decisions.md`, `setup.md` | Empty; only `development_guide.md` is written |
 
 **Biggest structural gap:** the frontend is still the **CopilotKit starter demo**. `agent/main.py` serves `src.agent.graph` — a todo-list / flight-search / A2UI demo agent on `ChatOpenAI` — not `cloudcleaner.graph.graph`. Nothing in `app/src/src/` mentions CloudCleaner. The agent and the UI are two disconnected projects right now.
 
@@ -85,7 +84,7 @@ uv run python -m scripts.run_cloudcleaner     # run the CloudCleaner graph
 uv run pytest                                 # (no tests written yet)
 ```
 
-Full setup, dependency and convention rules: [`docs/development_guide.md`](docs/development_guide.md).
+Full setup, dependency and convention rules: [`agent/README.md`](agent/README.md).
 
 ---
 
@@ -252,7 +251,6 @@ CloudCleaner/
 │   │   └── main.py              # FastAPI + AG-UI endpoint
 │   ├── .env.example
 │   └── package.json
-├── docs/                        # development_guide.md written; the rest are empty
 ├── infra/                       # empty
 └── references/                  # hackathon PDFs (source for Part 2)
 ```

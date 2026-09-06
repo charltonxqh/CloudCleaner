@@ -1,5 +1,5 @@
-"""Evaluation harness for the ASSESS step — the piece README.md §2.9 / PLAN.md §7
-call for and that didn't exist yet: is the agent's *judgment* actually good?
+"""Evaluation harness for the ASSESS step — the piece README.md §2.9 calls
+for: is the agent's *judgment* actually good?
 
     uv run scripts/evaluate.py
 
@@ -9,7 +9,7 @@ pulls raw CloudWatch numbers). This script asks a different question: given
 evidence where we already know the right answer, how often does the agent
 agree?
 
-Measures, per PLAN.md §7:
+Measures:
   - Recommendation accuracy against a labelled set (10 resources: 5 should be
     kept, 5 should be retired) - reported as accuracy plus a full confusion
     breakdown, because recall on "keep" matters most: a false retire is the
@@ -244,7 +244,7 @@ def report(results: list[CaseResult]) -> None:
     else:
         print("Schema validation / token cost: n/a - no LLM call was made (rules-only mode)")
     print()
-    print("(*) PLAN.md is explicit this is the number that matters most - a false")
+    print("(*) This is the number that matters most - a false")
     print("    'retire' is the expensive, irreversible error; a false 'keep' just")
     print("    costs a few more dollars until the next run catches it.")
 
