@@ -58,17 +58,46 @@ that names the resource.
 
 ## Quick start
 
+You need **Python 3.12+**, **Node 20+**, and [**uv**](https://docs.astral.sh/uv/). If you don't have
+uv yet:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh          # macOS / Linux
+```
+```powershell
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"   # Windows
+```
+
+> **Windows users, two things that will bite you.** PowerShell has no inline environment variable
+> prefix, so `CLOUDCLEANER_PROVIDER=fixture uv run ...` fails — set the variable on its own line
+> first. And Windows PowerShell 5.1 (the one that ships with Windows) doesn't support `&&`, so put
+> each command on its own line. PowerShell 7+ and the commands below handle both. Everything else
+> is the same on all three platforms.
+
 ### Try it with no AWS account
 
 The fastest way to see it work. There's a built-in demo account in `fixtures/demo.py` that the graph
-can't tell apart from the real thing, so the whole pipeline runs offline:
+can't tell apart from the real thing, so the whole pipeline runs offline — no AWS credentials, no
+Groq key, nothing to clean up afterwards.
 
 ```bash
+# macOS / Linux
 cd agent
 uv sync --dev
 
 CLOUDCLEANER_PROVIDER=fixture uv run python -m cloudcleaner.cli scan
 ```
+
+```powershell
+# Windows (PowerShell)
+cd agent
+uv sync --dev
+
+$env:CLOUDCLEANER_PROVIDER = "fixture"
+uv run python -m cloudcleaner.cli scan
+```
+
+Either way you get:
 
 ```
 provider=fixture  dry_run=True
@@ -82,29 +111,42 @@ eipalloc-0unused9          eip    unassociated      $3.65 *
 4 resources · $50.95/mo total · $16.58/mo not running but still billing (*)
 ```
 
-Then let it reason about all of them and plan the teardowns:
+Then let it reason about all of them and plan the teardowns. On Windows the `$env:` line above is
+still set for the rest of the session, so you only need it once:
 
 ```bash
-CLOUDCLEANER_PROVIDER=fixture uv run python -m cloudcleaner.cli sweep
+uv run python -m cloudcleaner.cli sweep
 ```
 
 That prints a verdict per resource, the ordered steps for anything it wants to retire, and what
-you'd recover per month. No AWS credentials, no Groq key, nothing to clean up afterwards.
+you'd recover per month.
 
 ### Set up for real
 
-Copy the template and fill it in:
+Copy the template and fill it in. `.env` goes at the **repo root**, not inside `agent/`:
 
 ```bash
-cp .env.example .env
+cp .env.example .env            # works in PowerShell too (cp is aliased to Copy-Item)
+```
+
+```
+CloudCleaner/
+├── .env          ← here
+├── agent/
+└── app/
 ```
 
 You need `GROQ_API_KEY` (free at [console.groq.com](https://console.groq.com)) and AWS credentials.
-`GITHUB_TOKEN` is optional but makes the verdicts noticeably better. Then check everything is wired
-up:
+`GITHUB_TOKEN` is optional but makes the verdicts noticeably better. Then check it's all wired up:
 
 ```bash
+# macOS / Linux
 cd agent && uv run python -m cloudcleaner.cli doctor
+```
+```powershell
+# Windows (PowerShell)
+cd agent
+uv run python -m cloudcleaner.cli doctor
 ```
 
 ```
@@ -119,10 +161,14 @@ model         disabled, rules only
 [ok ] GitHub token
 ```
 
-`doctor` tells you which `.env` it actually found, which is usually the answer when something isn't
-being picked up.
+**That first line is the important one.** `doctor` prints the `.env` it actually found, which is
+almost always the answer when a key "isn't working". If it says it found nothing, or found a
+different file than you expected, set `CLOUDCLEANER_ENV_FILE` to an absolute path and it will stop
+searching.
 
 ### Run the UI
+
+Same on every platform:
 
 ```bash
 cd app
@@ -132,7 +178,22 @@ npm run dev
 
 One command starts both: the dashboard on **http://localhost:3000** and the API on **:8123**. The UI
 has five views — overview, resources, investigation, history and evaluation. Click any resource to
-investigate it and watch the reasoning trail build up as the agent works.
+investigate it and watch the reasoning trail build as the agent works.
+
+If that fails on Windows, run the two halves in separate terminals:
+
+```powershell
+# terminal 1
+cd app
+npm run dev:ui
+
+# terminal 2
+cd agent
+uv run main.py
+```
+
+(`npm run dev:debug` sets an environment variable inline, so that one really doesn't work on
+Windows. Use the two-terminal version instead.)
 
 ### The CLI
 
@@ -151,14 +212,29 @@ uv run python -m cloudcleaner.cli history --limit 100
 uv run python -m cloudcleaner.cli serve --port 8123         # the HTTP API on its own
 ```
 
+Those are identical on Windows — it's only the environment variables in front that change.
+
+To switch between the demo account and real AWS for one session:
+
+```bash
+export CLOUDCLEANER_PROVIDER=fixture     # macOS / Linux
+```
+```powershell
+$env:CLOUDCLEANER_PROVIDER = "fixture"   # Windows (PowerShell)
+```
+
+Or just set `CLOUDCLEANER_PROVIDER` in `.env` and forget about it.
+
 ### Tests
 
 ```bash
-cd agent && uv run pytest
+cd agent
+uv run pytest
 ```
 
-111 tests, no AWS account needed. Includes Hypothesis property tests over the dependency graph —
-the ordering guarantees are checked against generated graphs, not just hand-written examples.
+111 tests, no AWS account needed, same on every platform. Includes Hypothesis property tests over
+the dependency graph — the ordering guarantees are checked against generated graphs, not just
+hand-written examples.
 
 ### Installing it
 
@@ -169,12 +245,15 @@ pip install "cloudcleaner-agent[server]"
 cloudcleaner doctor
 ```
 
-Same commands, installed as `cloudcleaner`.
+Same commands, installed as `cloudcleaner`. On Windows, if `cloudcleaner` isn't found after
+installing, pip's scripts directory isn't on your PATH — `python -m cloudcleaner.cli doctor` works
+regardless.
 
 ## Configuration
 
-All of it goes in `.env` at the repo root. `agent/cloudcleaner/config.py` searches upward from the
-working directory, then from the package, then `~/.cloudcleaner/.env`.
+All of it goes in `.env` at the repo root. `agent/cloudcleaner/config.py` looks at
+`CLOUDCLEANER_ENV_FILE` first, then searches upward from the working directory, then from the
+package, then `~/.cloudcleaner/.env`. Run `cloudcleaner doctor` to see which one it settled on.
 
 | Variable | Default | What it does |
 |---|---|---|
@@ -188,6 +267,7 @@ working directory, then from the package, then `~/.cloudcleaner/.env`.
 | `CLOUDCLEANER_AI_ENABLED` | `true` | `false` = rules only, no resource metadata leaves the machine |
 | `METRIC_WINDOW_DAYS` | `7` | How far back CloudWatch is queried |
 | `CLOUDCLEANER_DATA_DIR` | `output/` | Where the database and reasoning log are written |
+| `CLOUDCLEANER_ENV_FILE` | — | Absolute path to a specific `.env`, if the search picks the wrong one |
 | `AWS_ENDPOINT_URL` | — | Point boto3 at LocalStack instead of real AWS |
 | `SLACK_BOT_TOKEN` / `SLACK_SIGNING_SECRET` / `SLACK_CHANNEL_ID` | — | Approvals from Slack |
 | `CLOUDCLEANER_MONITOR_INTERVAL_MINUTES` | `0` | Re-scan on a schedule. `0` disables it. |
