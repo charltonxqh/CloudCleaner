@@ -106,10 +106,6 @@ export function Sidebar({
                style={{ color: "var(--nav-fg)" }}>
             CloudCleaner
           </div>
-          <div className="mt-1 text-[13px] leading-snug"
-               style={{ color: "var(--nav-fg-muted)" }}>
-            AWS lifecycle agent · us-east-1
-          </div>
         </div>
       </div>
 

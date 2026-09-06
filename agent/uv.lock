@@ -414,9 +414,14 @@ tracing = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "ag-ui-langgraph", extra = ["fastapi"] },
+    { name = "ag-ui-protocol" },
+    { name = "copilotkit" },
+    { name = "fastapi" },
     { name = "hypothesis" },
     { name = "moto" },
     { name = "pytest" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
@@ -445,9 +450,14 @@ provides-extras = ["server", "openai", "anthropic", "tracing", "all"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "ag-ui-langgraph", extras = ["fastapi"], specifier = "==0.0.43" },
+    { name = "ag-ui-protocol", specifier = "==0.1.19" },
+    { name = "copilotkit", specifier = "==0.1.96" },
+    { name = "fastapi", specifier = ">=0.115.5,<1.0.0" },
     { name = "hypothesis", specifier = ">=6.167.1" },
     { name = "moto", extras = ["ec2"], specifier = ">=5.2.3" },
     { name = "pytest", specifier = ">=9.1.1" },
+    { name = "uvicorn", specifier = ">=0.29.0,<1.0.0" },
 ]
 
 [[package]]

@@ -60,7 +60,12 @@ function BigStat({
     <div className="pixel-shadow min-w-[228px] flex-1">
       <div className="pixel-card h-full px-6 py-5" style={{ background: c.bg, color: c.fg }}>
         <div className="flex items-start justify-between gap-3">
-          <div className="label" style={{ color: c.fg, opacity: 0.72 }}>{label}</div>
+          <div
+            className="label font-bold leading-tight"
+            style={{ color: c.fg, fontSize: 25, letterSpacing: "0.01em" }}
+          >
+            {label}
+          </div>
           <PixelGlyph tint={tint} />
         </div>
 

@@ -50,7 +50,16 @@ function EvaluationCard({
           borderTop: `3px solid ${captured ? accent.line : "var(--border-strong)"}`,
         }}
       >
-        <div className="label" style={{ color: captured ? accent.line : "var(--fg-faint)" }}>
+        <div
+          className="label font-bold leading-tight"
+          style={{
+            color: captured ? accent.line : "var(--fg-faint)",
+            // Inline: .label sets font-size after Tailwind's utilities, so a
+            // text-[Npx] class loses to it. Matches the figure below.
+            fontSize: 25,
+            letterSpacing: "-0.01em",
+          }}
+        >
           {label}
         </div>
 
@@ -67,13 +76,13 @@ function EvaluationCard({
 
         <div className="pixel-rule mt-4" style={{ color: accent.line }} />
 
-        <p className="mt-3.5 text-[15.5px] leading-relaxed" style={{ color: "var(--fg-muted)" }}>
+        <p className="mt-3.5 text-[12.5px] leading-relaxed" style={{ color: "var(--fg-muted)" }}>
           {description}
         </p>
 
         {sample && (
           <div
-            className="mt-auto pt-4 text-[14.5px] leading-relaxed"
+            className="mt-auto pt-4 text-[12px] leading-relaxed"
             style={{ color: captured ? "var(--fg-faint)" : accent.line, opacity: captured ? 1 : 0.75 }}
           >
             {sample}

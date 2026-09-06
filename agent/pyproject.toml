@@ -58,10 +58,18 @@ where = ["."]
 include = ["cloudcleaner*"]
 
 [dependency-groups]
+# uv installs this group by default, so a checkout gets the web server without
+# anyone remembering a flag. The published wheel still keeps it behind the
+# [server] extra, because a CLI user has no reason to install uvicorn.
 dev = [
     "hypothesis>=6.167.1",
     "moto[ec2]>=5.2.3",
     "pytest>=9.1.1",
+    "fastapi>=0.115.5,<1.0.0",
+    "uvicorn>=0.29.0,<1.0.0",
+    "copilotkit==0.1.96",
+    "ag-ui-langgraph[fastapi]==0.0.43",
+    "ag-ui-protocol==0.1.19",
 ]
 
 [tool.pytest.ini_options]

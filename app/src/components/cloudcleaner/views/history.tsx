@@ -97,7 +97,12 @@ function Summary({ totals }: { totals: HistoryTotals }) {
               borderTop: `3px solid ${c.accent}`,
             }}
           >
-            <div className="label" style={{ color: c.accent }}>{c.label}</div>
+            <div
+              className="label font-bold leading-tight"
+              style={{ color: c.accent, fontSize: 20, letterSpacing: "0.01em" }}
+            >
+              {c.label}
+            </div>
 
             <div
               className="num mt-2.5 text-[27px] font-semibold leading-none"
