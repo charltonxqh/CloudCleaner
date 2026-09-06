@@ -106,7 +106,7 @@ export function Sidebar({
                style={{ color: "var(--nav-fg)" }}>
             CloudCleaner
           </div>
-          <div className="mt-1 text-[11.5px] leading-snug"
+          <div className="mt-1 text-[13px] leading-snug"
                style={{ color: "var(--nav-fg-muted)" }}>
             AWS lifecycle agent · us-east-1
           </div>
@@ -120,7 +120,7 @@ export function Sidebar({
             key={item.id}
             onClick={() => onNavigate(item.id)}
             aria-current={active ? "page" : undefined}
-            className={`${active ? "pixel-sm" : ""} flex shrink-0 items-center gap-3 px-3 text-[14px] transition-colors duration-150`}
+            className={`${active ? "pixel-sm" : ""} flex shrink-0 items-center gap-3 px-3 text-[15px] transition-colors duration-150`}
             style={{
               minHeight: 42,
               borderRadius: active ? 0 : "var(--radius)",
@@ -134,7 +134,7 @@ export function Sidebar({
 
             {badges?.[item.id] !== undefined && (
               <span
-                className="num ml-auto hidden px-2 py-0.5 text-[11px] lg:inline"
+                className="num ml-auto hidden px-2 py-0.5 text-[12.5px] lg:inline"
                 style={{
                   background: "rgb(255 255 255 / 0.1)",
                   color: "var(--nav-fg-muted)",
@@ -162,7 +162,7 @@ export function ViewHeader({
       <div className="min-w-0">
         <h1 className="pixel-type truncate text-[34px] leading-tight">{title}</h1>
         {subtitle && (
-          <p className="mt-1 text-[14px] leading-snug" style={{ color: "var(--fg-muted)" }}>
+          <p className="mt-1 text-[15px] leading-snug" style={{ color: "var(--fg-muted)" }}>
             {subtitle}
           </p>
         )}

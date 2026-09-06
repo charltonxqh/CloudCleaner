@@ -67,13 +67,13 @@ function EvaluationCard({
 
         <div className="pixel-rule mt-4" style={{ color: accent.line }} />
 
-        <p className="mt-3.5 text-[13.5px] leading-relaxed" style={{ color: "var(--fg-muted)" }}>
+        <p className="mt-3.5 text-[15.5px] leading-relaxed" style={{ color: "var(--fg-muted)" }}>
           {description}
         </p>
 
         {sample && (
           <div
-            className="mt-auto pt-4 text-[12px] leading-relaxed"
+            className="mt-auto pt-4 text-[14.5px] leading-relaxed"
             style={{ color: captured ? "var(--fg-faint)" : accent.line, opacity: captured ? 1 : 0.75 }}
           >
             {sample}
@@ -104,7 +104,7 @@ export function EvaluationView({
         </h2>
 
         <p
-          className="mt-2 max-w-[900px] text-[14px] leading-relaxed"
+          className="mt-2 max-w-[900px] text-[15.5px] leading-relaxed"
           style={{ color: "var(--fg-muted)" }}
         >
           Measures recommendation quality, model reliability, tool execution,

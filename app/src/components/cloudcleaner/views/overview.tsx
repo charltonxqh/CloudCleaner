@@ -74,7 +74,7 @@ function BigStat({
         <div className="pixel-rule mt-3.5" />
 
         {sub && (
-          <div className="mt-3 text-[12.5px] leading-snug" style={{ opacity: 0.8 }}>
+          <div className="mt-3 text-[13.5px] leading-snug" style={{ opacity: 0.8 }}>
             {sub}
           </div>
         )}
@@ -106,7 +106,7 @@ function WasteBreakdown({ resources }: { resources: Resource[] }) {
         borderTop: "3px solid var(--blue-on-dark)",
       }}
     >
-      <div className="text-[13px] font-semibold uppercase tracking-[0.08em]"
+      <div className="text-[14px] font-semibold uppercase tracking-[0.08em]"
            style={{ color: "var(--blue-on-dark)" }}>
         Spend by resource type
       </div>
@@ -119,11 +119,11 @@ function WasteBreakdown({ resources }: { resources: Resource[] }) {
             <tr key={type} className="rise" style={{ ["--i" as string]: i }}>
               <th
                 scope="row"
-                className="w-[150px] py-2 pr-4 text-left text-[13px] font-normal"
+                className="w-[150px] py-2 pr-4 text-left text-[14px] font-normal"
                 style={{ color: "var(--fg-muted)" }}
               >
                 {TYPE_LABEL[type] ?? type}
-                <span className="ml-2 text-[12px]" style={{ color: "var(--fg-faint)" }}>
+                <span className="ml-2 text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
                   ×{v.count}
                 </span>
               </th>
@@ -149,7 +149,7 @@ function WasteBreakdown({ resources }: { resources: Resource[] }) {
                   </div>
                 </div>
               </td>
-              <td className="num w-[88px] py-2 pl-4 text-right text-[13px]">
+              <td className="num w-[88px] py-2 pl-4 text-right text-[14px]">
                 {money(v.total)}
               </td>
             </tr>
@@ -157,7 +157,7 @@ function WasteBreakdown({ resources }: { resources: Resource[] }) {
         </tbody>
       </table>
 
-      <div className="mt-4 flex gap-5 text-[12px]" style={{ color: "var(--fg-faint)" }}>
+      <div className="mt-4 flex gap-5 text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
         <span className="flex items-center gap-2">
           <span className="h-2.5 w-3.5" style={{ background: "var(--pink)" }} /> wasted
         </span>
@@ -231,7 +231,7 @@ export function OverviewView({
           }}
         >
           <div className="flex items-center justify-between">
-            <div className="text-[13px] font-semibold uppercase tracking-[0.08em]"
+            <div className="text-[14px] font-semibold uppercase tracking-[0.08em]"
                  style={{ color: "var(--pink-on-dark)" }}>
               Paying for nothing
             </div>
@@ -252,8 +252,8 @@ export function OverviewView({
                     style={{ minHeight: 50, background: "var(--surface-2)" }}
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="mono block truncate text-[13px]">{r.resource_id}</span>
-                      <span className="mt-0.5 block truncate text-[12px]" style={{ color: "var(--fg-faint)" }}>
+                      <span className="mono block truncate text-[14px]">{r.resource_id}</span>
+                      <span className="mt-0.5 block truncate text-[13.5px]" style={{ color: "var(--fg-faint)" }}>
                         {r.name || (r.size_gb ? `${r.size_gb} GB` : "untagged")} · {r.state}
                       </span>
                     </span>
@@ -264,7 +264,7 @@ export function OverviewView({
                       </Tag>
                     )}
 
-                    <span className="num shrink-0 text-[14px]" style={{ color: "var(--danger)" }}>
+                    <span className="num shrink-0 text-[15px]" style={{ color: "var(--danger)" }}>
                       {money(r.estimated_monthly_cost)}
                     </span>
                   </button>
@@ -273,7 +273,7 @@ export function OverviewView({
             </ul>
           )}
 
-          <p className="mt-auto pt-4 text-[12px] leading-relaxed" style={{ color: "var(--fg-faint)" }}>
+          <p className="mt-auto pt-4 text-[13.5px] leading-relaxed" style={{ color: "var(--fg-faint)" }}>
             Stopping an instance releases compute only. Attached volumes and public IPv4
             addresses keep billing until they are explicitly released.
           </p>
