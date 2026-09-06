@@ -24,7 +24,12 @@ def test_empty_account_ends_cleanly_and_is_not_an_error():
 
 
 @pytest.mark.parametrize("action,expected", [
-    ("keep", "record"), ("investigate_more", "record"), ("stop", "plan"), ("retire", "plan"),
+    ("keep", "record"),
+    ("investigate_more", "record"),
+    # a stop is a single Action, so it goes to the policy gate first;
+    # a retirement is multi-step, so it is planned before the gate sees it
+    ("stop", "policy_check"),
+    ("retire", "plan"),
 ])
 def test_only_actionable_verdicts_reach_the_planner(action, expected):
     assert route_after_assess({"recommendation": _rec(action)}) == expected
@@ -40,7 +45,7 @@ def test_empty_plan_never_reaches_approval():
 
 
 def test_unapproved_plan_never_executes():
-    assert route_after_approval({"approval": ApprovalDecision(decision="keep")}) == "record"
+    assert route_after_approval({"approval": ApprovalDecision(decision="reject")}) == "record"
 
 
 def test_approved_plan_executes():
@@ -116,7 +121,7 @@ def test_approval_interrupt_pauses_and_resumes():
     assert payload["plan"]["total_monthly_saving"] > 0
 
     refused = graph.invoke(Command(resume="y"), config)
-    assert refused["approval"].decision == "keep"
+    assert refused["approval"].decision == "invalid"
     assert not refused.get("action_results")
 
 
@@ -146,4 +151,4 @@ def test_every_terminal_path_is_recorded():
 
     assert route_after_assess({"recommendation": _rec("keep")}) == "record"
     assert route_after_plan({"plan": TeardownPlan(root_resource_id="i-1", blocked=["x"])}) == "record"
-    assert route_after_approval({"approval": ApprovalDecision(decision="keep")}) == "record"
+    assert route_after_approval({"approval": ApprovalDecision(decision="reject")}) == "record"

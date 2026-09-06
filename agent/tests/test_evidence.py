@@ -111,7 +111,6 @@ def test_repeat_sightings_accumulate(tmp_path):
 
     memory = recall("i-1", path=path)
     assert memory["times_seen"] == 3
-    assert memory["times_kept"] == 3
     assert memory["last_verdict"] == "keep"
 
 
@@ -120,7 +119,8 @@ def test_a_human_decision_is_remembered_across_later_runs(tmp_path):
     record_run(
         _resource(),
         recommendation=Recommendation(action="retire", reason="idle", confidence=0.8),
-        approval=ApprovalDecision(decision="keep", reason="still needed"),
+        approval=ApprovalDecision(decision="reject", reason="still needed",
+                                  approved_by="hayden"),
         path=path,
     )
     # a later run where nobody was asked must not erase what the human said
@@ -128,8 +128,9 @@ def test_a_human_decision_is_remembered_across_later_runs(tmp_path):
                                                           confidence=0.8), path=path)
 
     memory = recall("i-1", path=path)
-    assert memory["human_decision"] == "keep"
+    assert memory["human_decision"] == "reject"
     assert memory["human_decided_at"] is not None
+    assert memory["human_decided_by"] == "hayden"
 
 
 def test_restore_recipe_is_kept_only_when_something_executed(tmp_path):

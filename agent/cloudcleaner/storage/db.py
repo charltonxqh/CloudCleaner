@@ -8,7 +8,9 @@ One file at output/cloudcleaner.db, three tables:
 """
 
 import json
+import re
 import sqlite3
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -79,6 +81,51 @@ CREATE INDEX IF NOT EXISTS idx_snapshots_resource ON snapshots(resource_id);
 """
 
 
+def _declared_columns(schema: str) -> dict[str, dict[str, str]]:
+    """Column definitions per table, read straight from SCHEMA above."""
+    tables: dict[str, dict[str, str]] = {}
+    for block in re.finditer(
+        r"CREATE TABLE IF NOT EXISTS\s+(\w+)\s*\((.*?)\n\);", schema, re.S
+    ):
+        table, body = block.group(1), block.group(2)
+        columns: dict[str, str] = {}
+        for line in body.splitlines():
+            line = line.strip().rstrip(",")
+            if not line or line.startswith("--") or line.upper().startswith(
+                ("PRIMARY KEY", "FOREIGN KEY", "UNIQUE", "CHECK")
+            ):
+                continue
+            name, _, decl = line.partition(" ")
+            columns[name] = decl.strip()
+        tables[table] = columns
+    return tables
+
+
+def migrate(conn: sqlite3.Connection) -> list[str]:
+    """Add columns that SCHEMA declares but an existing database lacks.
+
+    CREATE TABLE IF NOT EXISTS does nothing to a table that already exists, so
+    without this a database created before a column was added keeps failing on
+    insert. Runs on every connect and is a no-op once the shapes agree.
+    """
+    applied = []
+    for table, columns in _declared_columns(SCHEMA).items():
+        existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if not existing:
+            continue
+        for name, decl in columns.items():
+            if name in existing:
+                continue
+            # ALTER TABLE cannot add PRIMARY KEY, and NOT NULL needs a default.
+            safe = re.sub(r"\bPRIMARY KEY\b|\bAUTOINCREMENT\b", "", decl,
+                          flags=re.I).strip()
+            if "NOT NULL" in safe.upper() and "DEFAULT" not in safe.upper():
+                safe = re.sub(r"\bNOT NULL\b", "", safe, flags=re.I).strip()
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {safe}".rstrip())
+            applied.append(f"{table}.{name}")
+    return applied
+
+
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -91,6 +138,12 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     # Survives a crash mid-write and allows a reader while the agent writes.
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(SCHEMA)
+
+    added = migrate(conn)
+    if added:
+        conn.commit()
+        print(f"[storage] added missing columns: {', '.join(added)}", file=sys.stderr)
+
     return conn
 
 

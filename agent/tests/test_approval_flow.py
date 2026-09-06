@@ -19,6 +19,17 @@ def _reset_metrics():
     METRICS.reset()
 
 
+@pytest.fixture(autouse=True)
+def _auto_approve(monkeypatch):
+    """approval_node calls interrupt(), which needs a LangGraph runtime.
+
+    These tests drive the node directly to count approval rounds, so the env
+    override is used to stand in for the human. Round counting is unaffected:
+    the node still increments approval_rounds on the auto-approved path.
+    """
+    monkeypatch.setenv("CLOUDCLEANER_AUTO_APPROVE", "true")
+
+
 def _drive_to_execute(resource, aws_evidence, recommendation):
     state = {"resource": resource, "aws_evidence": aws_evidence, "recommendation": recommendation}
     state.update(policy_check_node(state))
