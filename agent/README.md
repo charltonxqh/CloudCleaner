@@ -4,8 +4,10 @@
 to be dismantled in, and asks a human before touching anything.**
 
 ```bash
-pip install cloudcleaner
+pip install cloudcleaner-agent
 ```
+
+The command it installs is `cloudcleaner`.
 
 ---
 
@@ -131,9 +133,9 @@ Read from `.env` in the working directory, upwards from it, or
 ## Extras
 
 ```bash
-pip install cloudcleaner              # the CLI
-pip install 'cloudcleaner[server]'    # plus the HTTP API and web frontend
-pip install 'cloudcleaner[all]'       # plus OpenAI, Anthropic, LangSmith
+pip install cloudcleaner-agent              # the CLI
+pip install 'cloudcleaner-agent[server]'    # plus the HTTP API and web frontend
+pip install 'cloudcleaner-agent[all]'       # plus OpenAI, Anthropic, LangSmith
 ```
 
 ---

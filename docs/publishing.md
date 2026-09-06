@@ -1,6 +1,14 @@
 # Publishing CloudCleaner to PyPI
 
-The package is `cloudcleaner`. The name was free at the time of writing.
+The package is **`cloudcleaner-agent`**, live at
+<https://pypi.org/project/cloudcleaner-agent/>. The command it installs is
+`cloudcleaner`.
+
+`cloudcleaner` itself was rejected: PyPI normalises hyphens, underscores and
+case, so it collided with the existing `cloud-cleaner`. A 404 on
+`pypi.org/pypi/<name>/json` only means nobody has registered that exact string
+— the similarity check runs at upload time, so check for hyphenated and
+underscored variants too before settling on a name.
 
 ## What ships
 
@@ -61,6 +69,13 @@ uv pip install --python /tmp/cc-check/bin/python \
 
 # 4. the real thing
 uv publish
+```
+
+`uv publish` reads `UV_PUBLISH_TOKEN` from the environment, so a token never has
+to be written to disk:
+
+```bash
+UV_PUBLISH_TOKEN='pypi-...' uv publish
 ```
 
 The `--extra-index-url` in step 3 is needed because TestPyPI does not mirror

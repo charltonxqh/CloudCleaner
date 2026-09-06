@@ -187,7 +187,7 @@ def cmd_serve(args) -> int:
         import uvicorn  # noqa: F401
     except ImportError:
         print("The HTTP API needs the server extra:\n\n"
-              "    pip install 'cloudcleaner[server]'\n", file=sys.stderr)
+              "    pip install 'cloudcleaner-agent[server]'\n", file=sys.stderr)
         return 1
 
     import uvicorn
