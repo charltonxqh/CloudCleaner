@@ -2,6 +2,7 @@ import pytest
 
 from cloudcleaner.graph.routing import route_after_approval, route_after_policy_check, route_after_verify
 from cloudcleaner.schemas import (
+    ApprovalDecision,
     PolicyDecision,
     PolicyResult,
     RiskAssessment,
@@ -82,3 +83,27 @@ def test_route_after_verify_rollback_when_not_verified():
 def test_route_after_verify_complete_when_nothing_was_executed():
     assert route_after_verify({"verification_results": []}) == "complete"
     assert route_after_verify({}) == "complete"
+
+
+# --- the non-interactive approval trap ---
+# An invalid answer deliberately loops back into the approval node so a human
+# can retype it. Anything answering on a human's behalf must therefore decline
+# explicitly: resuming with "" parses as invalid, and with nobody to re-prompt
+# the graph interrupts forever. cli.py hit exactly this.
+
+
+def test_invalid_approval_loops_back_for_a_retype():
+    state = {"approval": ApprovalDecision(decision="invalid", reason="unrecognised")}
+    assert route_after_approval(state) == "approval"
+
+
+def test_an_explicit_rejection_terminates_instead_of_looping():
+    state = {"approval": ApprovalDecision(decision="reject", approved_by="cli:non-interactive")}
+    assert route_after_approval(state) == "record"
+
+
+def test_an_empty_answer_is_invalid_not_a_rejection():
+    """The distinction the CLI hang turned on."""
+    from cloudcleaner.policy.approval import parse_approval
+
+    assert parse_approval("", "i-1")["valid"] is False

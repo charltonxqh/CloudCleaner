@@ -111,8 +111,14 @@ def cmd_investigate(args) -> int:
     while "__interrupt__" in result:
         payload = result["__interrupt__"][0].value
         if not sys.stdin.isatty():
+            # Decline explicitly. Resuming with "" parses as an *invalid*
+            # answer, which routes back into the approval node and interrupts
+            # again - an infinite loop when there is nobody to re-prompt.
             print(render_plan(payload).rstrip() + "  [not a terminal, skipped]")
-            result = graph.invoke(Command(resume=""), config)
+            result = graph.invoke(
+                Command(resume={"decision": "reject", "approved_by": "cli:non-interactive"}),
+                config,
+            )
             continue
         result = graph.invoke(Command(resume=input(render_plan(payload))), config)
 

@@ -1,262 +1,227 @@
 # CloudCleaner
 
-An agentic AI system that investigates idle cloud resources, gathers evidence from AWS + GitHub/CI,
-recommends an action, asks a human to approve it, then executes and verifies it.
-
-Built for the **IGNITE Agentic AI Hackathon 2026** (SimplifyNext) — **Software AI track**.
+CloudCleaner finds AWS resources nobody is using, proves they're unused, works out what order they
+have to be deleted in, and asks a human before touching anything.
 
 ---
 
-## Part 1 — What this repo does today
+## The problem
 
-### 1.1 The idea
+Stopping an EC2 instance doesn't stop the bill.
 
-Cloud accounts accumulate resources nobody dares delete, because nobody can prove they are unused.
-CloudCleaner is a **decision-support + transaction agent** that builds the proof, and then does the
-thing that actually blocks people: works out what order it all has to come apart in.
+The compute charge goes away, but the EBS volumes attached to it keep billing, and so does the
+public IPv4 address. A stopped `t3.micro` with a 16 GB volume and an Elastic IP still costs about
+**$4.93 a month, forever**. Multiply that by every proof-of-concept box a team has ever stopped
+"for now" and it adds up quietly.
+
+So the only real fix is deleting things. And deleting things in AWS is where people give up,
+because the dependencies bite:
+
+- You can't release an Elastic IP while it's still associated with something.
+- A volume with `DeleteOnTermination=false` outlives the instance it was attached to, and keeps
+  charging you after the instance is gone.
+- AWS tells you about these one blocker at a time. Fix one, retry, hit the next.
+
+Most cleanup tools stop when they hit a dependency and tell you to sort it out yourself.
+CloudCleaner builds the whole dependency graph up front and topologically sorts it, so the entire
+teardown sequence is known before anything runs. That's in `policy/dependencies.py`, and it's the
+part of this project worth looking at first.
+
+## What it does
 
 ```
 DETECT → INVESTIGATE → ASSESS → POLICY → PLAN → APPROVAL → EXECUTE → VERIFY → (ROLLBACK) → RECORD
 ```
 
-- **DETECT** — list EC2 instances, EBS volumes and Elastic IPs; rank by *wasted* spend, not total spend.
-- **INVESTIGATE** — CloudWatch CPU/network and cost, plus GitHub signals (last commit, PR status, whether the branch still exists, last CI run).
-- **ASSESS** — an LLM reads only the evidence and returns a typed `Recommendation` (`keep` / `investigate_more` / `stop` / `retire`) with a reason and confidence. A deterministic rules engine sees the same evidence and takes over whenever the model is disabled or fails.
-- **POLICY** — deterministic risk scoring and hard safety gates. No LLM.
-- **PLAN** — expands a `retire` into a dependency-ordered teardown.
-- **APPROVAL** — human-in-the-loop gate via LangGraph `interrupt()`, answerable from the UI or from Slack.
-- **EXECUTE / VERIFY / ROLLBACK** — perform the approved steps, confirm the end state, undo on failure.
-- **RECORD** — persist the run, the decision and the full reasoning trail to SQLite.
+**DETECT** lists EC2 instances, EBS volumes and Elastic IPs, and ranks them by *wasted* spend rather
+than total spend — a busy production box is expensive, not wasteful, and shouldn't come top.
 
-**The core insight.** Stopping an EC2 instance does not stop the bill: its EBS volumes and its
-public IPv4 keep charging. A stopped `t3.micro` with a 16 GB volume and an Elastic IP still costs
-about **$4.93/month, indefinitely**. Deleting is the only real fix — and deleting is a dependency
-puzzle. You cannot release an Elastic IP while it is still associated, and a volume with
-`DeleteOnTermination=false` outlives the instance it was attached to. Comparable tools *block* on
-dependents; CloudCleaner *orders* them, with a topological sort and cycle detection
-(`policy/dependencies.py`).
+**INVESTIGATE** gathers the evidence: CloudWatch CPU and network, what it costs, and GitHub signals
+— last commit, whether the branch still exists, PR status, last CI run. If the repo that owns a
+resource is still alive, that matters more than a low CPU reading.
 
-**Safety stance.** Dry run is the default. Irreversible steps are labelled as such, and a restore
-point is taken before them. Protected environments and tags hard-block planning outright. Nothing
-executes without an explicit human approval naming the resource.
+**ASSESS** hands the evidence to an LLM, which returns a typed verdict — `keep`, `investigate_more`,
+`stop` or `retire` — with a reason and a confidence. A deterministic rules engine sees exactly the
+same evidence and takes over whenever the model is disabled or fails, so the pipeline never depends
+on the LLM being available.
 
-### 1.2 Stack
+**POLICY** scores risk and applies hard safety gates. No LLM involved.
 
-| Layer | Choice |
-|---|---|
-| Frontend | Next.js 16 + React 19 + Tailwind v4 — a custom dashboard (overview / resources / investigation / history / evaluation) |
-| Backend | FastAPI on port 8123, with an AG-UI/CopilotKit endpoint mounted at `/` |
-| Orchestration | LangGraph 1.1 — 10 nodes, 6 conditional edges, `interrupt()` for approval |
-| Persistence | SQLite — `SqliteSaver` checkpoints plus `runs` / `decisions` / `events` / `snapshots` tables |
-| LLM | Groq via `langchain-groq` (`openai/gpt-oss-20b` default), structured output via `json_schema` |
-| Cloud | boto3 → EC2, CloudWatch, STS (region `us-east-1`) |
-| Notifications | Slack approvals (Block Kit + signature verification), owner email via SES |
-| Schemas | Pydantic v2 (`cloudcleaner/schemas.py`) |
-| Package mgmt | `npm` (frontend), `uv` (backend) |
+**PLAN** turns a `retire` into an ordered teardown. **APPROVAL** stops and waits for a human, via
+the UI or Slack. **EXECUTE**, **VERIFY** and **ROLLBACK** do the work, confirm it landed, and undo
+it if it didn't. **RECORD** writes the run, the decision and the full reasoning trail to SQLite, so
+the next run remembers what you already decided.
 
-### 1.3 What is implemented
+Dry run is the default. Irreversible steps are labelled, and a snapshot is taken before them.
+Protected environments and tags block planning outright. Nothing executes without a human approval
+that names the resource.
 
-**The pipeline is real end to end.** No mocked nodes remain: `investigate` queries CloudWatch,
-`execute` calls boto3, `verify` re-reads actual state, and `routing.py` branches on the verdict so a
-`keep` never reaches the approval gate.
+## Quick start
 
-| Area | Where | What it does |
-|---|---|---|
-| Dependency-ordered teardown | `policy/dependencies.py` | Kahn's algorithm with cycle detection — the differentiator |
-| Cost model | `tools/aws/cost.py` | AWS Price List lookups with local fallbacks; separates cost-while-stopped from cost-while-running |
-| Deterministic policy | `policy/risk.py`, `policy/safety.py` | Risk scoring and hard gates; runs at assess time *and* again at execute time |
-| Inventory | `tools/aws/inventory.py`, `volumes.py`, `addresses.py` | Paginated EC2, EBS and Elastic IP listing |
-| Metrics | `tools/aws/metrics.py` | CloudWatch CPU, network, and an idle-days lookback |
-| GitHub evidence | `tools/github/` | Commits, branches, pull requests, CI runs |
-| Slack + email | `tools/slack/`, `tools/email/` | Approval messages, interaction callbacks, owner notification |
-| Long-term memory | `storage/db.py`, `repository.py` | Run history, prior human decisions fed back into the prompt, self-migrating schema |
-| Monitoring | `monitoring.py` | Scheduled re-scan loop, also triggerable over HTTP |
-| CLI | `cli.py` | `scan`, `sweep`, `investigate`, `history`, `doctor`, `serve` |
-| Offline demo | `fixtures/demo.py` | `CLOUDCLEANER_PROVIDER=fixture` runs the whole graph with no AWS account |
-| Tests | `tests/` | 108 passing, including Hypothesis property tests over the dependency graph |
+### Try it with no AWS account
 
-**Known gaps.** The frontend still carries unused CopilotKit starter code
-(`app/src/app/declarative-generative-ui/`, the a2ui hooks, `agent/src/`) that the CloudCleaner UI
-never imports. And nothing has been run against a real AWS account: every boto3 path is exercised
-through fixtures only.
-
-### 1.4 Running it
-
-Put credentials in `.env` at the repo root (see `.env.example`): `GROQ_API_KEY`, AWS credentials,
-and optionally `GITHUB_TOKEN` and Slack tokens.
+The fastest way to see it work. There's a built-in demo account in `fixtures/demo.py` that the graph
+can't tell apart from the real thing, so the whole pipeline runs offline:
 
 ```bash
-# everything: UI on :3000, API on :8123
-cd app && npm install && npm run dev
+cd agent
+uv sync --dev
 
-# backend only
-cd agent && uv sync --dev
-uv run python -m cloudcleaner.cli doctor        # check credentials and config
-uv run python -m cloudcleaner.cli scan          # list resources and what they cost
-uv run python -m cloudcleaner.cli sweep         # assess everything, plan the teardowns
-uv run pytest                                   # 108 tests
+CLOUDCLEANER_PROVIDER=fixture uv run python -m cloudcleaner.cli scan
 ```
 
-No AWS account? Every command works offline against the demo fixtures:
+```
+provider=fixture  dry_run=True
+
+RESOURCE                   TYPE   STATE              $/MO
+i-0999prod888              ec2    running          $34.37
+vol-0orphan11              ebs    available         $8.00 *
+i-0abc123def456789         ec2    stopped           $4.93 *
+eipalloc-0unused9          eip    unassociated      $3.65 *
+
+4 resources · $50.95/mo total · $16.58/mo not running but still billing (*)
+```
+
+Then let it reason about all of them and plan the teardowns:
 
 ```bash
 CLOUDCLEANER_PROVIDER=fixture uv run python -m cloudcleaner.cli sweep
 ```
 
-Published to PyPI as `cloudcleaner-agent`, which installs the same commands as `cloudcleaner`.
+That prints a verdict per resource, the ordered steps for anything it wants to retire, and what
+you'd recover per month. No AWS credentials, no Groq key, nothing to clean up afterwards.
 
-Full setup, dependency and convention rules: [`agent/README.md`](agent/README.md).
+### Set up for real
 
----
+Copy the template and fill it in:
 
-## Part 2 — Hackathon brief (Software AI track)
+```bash
+cp .env.example .env
+```
 
-Distilled from the PDFs in [`references/`](references/). The Physical AI / Unitree robot track
-(`IGNITE - Agentic AI Hackathon Slides_25 Aug.pdf`) is **out of scope** and excluded here.
+You need `GROQ_API_KEY` (free at [console.groq.com](https://console.groq.com)) and AWS credentials.
+`GITHUB_TOKEN` is optional but makes the verdicts noticeably better. Then check everything is wired
+up:
 
-### 2.1 The problem statement we must answer
+```bash
+cd agent && uv run python -m cloudcleaner.cli doctor
+```
 
-> **Design for a World in Transformation.**
-> Change is everywhere — in how we live, learn, and relate to one another. Transformation takes time,
-> effort, and the right support at the right moment. Build something that helps: a solution that
-> **plans, acts, and adapts over time**. Your team chooses the problem and decides who it serves.
-> Design a solution that thinks ahead, takes action, and leaves people genuinely better off.
+```
+config file   /path/to/CloudCleaner/.env
+data dir      /path/to/CloudCleaner/output
+provider      fixture
+dry run       True
+model         disabled, rules only
 
-### 2.2 Key dates
+[ok ] Groq key
+[ok ] AWS not needed — running against the built-in demo account
+[ok ] GitHub token
+```
 
-| Date | Milestone |
-|---|---|
-| 14 Aug | Kick-off |
-| 17–28 Aug | Training & mentoring sessions |
-| **7 Sep** | **Solution submission** |
-| 9–11 Sep | Semi-finals (various locations) |
-| 18 Sep | Grand Finale @ NUS |
+`doctor` tells you which `.env` it actually found, which is usually the answer when something isn't
+being picked up.
 
-### 2.3 Deliverables
+### Run the UI
 
-- **Project files / workflow** — max 5 GB, **one submission only**
-- **Presentation deck** — max **10 slides**
-- **Demo video** — max **5 minutes** (digital solution walkthrough)
+```bash
+cd app
+npm install
+npm run dev
+```
 
-Deliverables must: answer the question (problem + innovative solution), showcase Agentic AI knowledge
-(technical soundness and functionality), and create business impact.
+One command starts both: the dashboard on **http://localhost:3000** and the API on **:8123**. The UI
+has five views — overview, resources, investigation, history and evaluation. Click any resource to
+investigate it and watch the reasoning trail build up as the agent works.
 
-### 2.4 Judging criteria — 5 × 20%
+### The CLI
 
-| Criterion | Weight | 2 points awarded when… |
+Every command works with or without AWS, depending on `CLOUDCLEANER_PROVIDER`.
+
+```bash
+cd agent
+
+uv run python -m cloudcleaner.cli doctor                    # check credentials and config
+uv run python -m cloudcleaner.cli scan                      # what exists and what it costs
+uv run python -m cloudcleaner.cli sweep                     # investigate everything, plan teardowns
+uv run python -m cloudcleaner.cli investigate i-0abc123     # dig into one resource
+uv run python -m cloudcleaner.cli investigate i-0abc123 --force-plan   # plan even if the verdict was 'keep'
+uv run python -m cloudcleaner.cli history                   # past runs and what you actually saved
+uv run python -m cloudcleaner.cli history --limit 100
+uv run python -m cloudcleaner.cli serve --port 8123         # the HTTP API on its own
+```
+
+### Tests
+
+```bash
+cd agent && uv run pytest
+```
+
+111 tests, no AWS account needed. Includes Hypothesis property tests over the dependency graph —
+the ordering guarantees are checked against generated graphs, not just hand-written examples.
+
+### Installing it
+
+Published to PyPI, so you can skip the checkout entirely:
+
+```bash
+pip install "cloudcleaner-agent[server]"
+cloudcleaner doctor
+```
+
+Same commands, installed as `cloudcleaner`.
+
+## Configuration
+
+All of it goes in `.env` at the repo root. `agent/cloudcleaner/config.py` searches upward from the
+working directory, then from the package, then `~/.cloudcleaner/.env`.
+
+| Variable | Default | What it does |
 |---|---|---|
-| Benefits delivered | 20% | Clear benefits; scalable or easily adopted |
-| Original / innovative idea | 20% | Unique and innovative approach to the problem |
-| Effectiveness of the solution | 20% | Fully addresses and **resolves** the problem |
-| Technical quality & superiority | 20% | Technically advanced, fully functional prototype, minimal work to production |
-| Presentation | 20% | Clearly explains the problem and demonstrates the benefits |
+| `GROQ_API_KEY` | — | The reasoning model. Free tier is fine. |
+| `GROQ_MODEL` | `openai/gpt-oss-20b` | Which Groq model to use |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` | — | Must be uppercase; boto3 only reads these exact names |
+| `AWS_REGION` | `us-east-1` | Access-denied errors are usually the wrong region |
+| `GITHUB_TOKEN` | — | Read-only PAT. Contents, Pull requests, Actions. |
+| `CLOUDCLEANER_PROVIDER` | `aws` | `fixture` runs entirely offline |
+| `CLOUDCLEANER_DRY_RUN` | `true` | Plan and log everything, change nothing |
+| `CLOUDCLEANER_AI_ENABLED` | `true` | `false` = rules only, no resource metadata leaves the machine |
+| `METRIC_WINDOW_DAYS` | `7` | How far back CloudWatch is queried |
+| `CLOUDCLEANER_DATA_DIR` | `output/` | Where the database and reasoning log are written |
+| `AWS_ENDPOINT_URL` | — | Point boto3 at LocalStack instead of real AWS |
+| `SLACK_BOT_TOKEN` / `SLACK_SIGNING_SECRET` / `SLACK_CHANNEL_ID` | — | Approvals from Slack |
+| `CLOUDCLEANER_MONITOR_INTERVAL_MINUTES` | `0` | Re-scan on a schedule. `0` disables it. |
 
-(1 point = partial, 0 = minimal. Everything is scored out of 2.)
+**Turning it loose.** `CLOUDCLEANER_DRY_RUN=false` is the only thing standing between a plan and a
+real deletion. Everything else — approval gates, safety rules, dependency ordering — still applies,
+but do it deliberately.
 
-### 2.5 Project-file requirements (what judges open)
+## How it's built
 
-1. **A good README suffices** — instructions to run the code, and an overview of each script/file's purpose.
-2. **Environment setup** — virtualenv with `requirements.txt`, or Docker. Path variables documented. Secrets in `.env`.
-3. **Language** — Python strongly recommended.
-4. **Execution** — no extensive test data needed. They check: (a) does it run as shown in the video, (b) does the presented methodology show up at code level (inline documentation helps), (c) testing/evaluation is covered **in the slides**.
-
-### 2.6 How to write the problem statement
-
-Use the **POV format**: *[User] needs [a way to …] because [insight].*
-
-Six ways a problem statement fails:
-
-| Failure | Example that fails |
+| Layer | Choice |
 |---|---|
-| The Solution in Disguise | "Students need an AI chatbot for course advice." |
-| The Everyone Problem | "People need better access to mental health support." |
-| The Missing Because | "Elderly residents need companionship." |
-| The Boiling Ocean | "Singapore needs a sustainable food supply chain." |
-| The Solved Problem | "Commuters need to know when the next bus arrives." |
-| The Comfortable Guess | "Job seekers need help writing resumes." |
+| Frontend | Next.js 16, React 19, Tailwind v4 |
+| Backend | FastAPI on :8123, with an AG-UI/CopilotKit endpoint mounted at `/` |
+| Orchestration | LangGraph 1.1 — 10 nodes, 6 conditional edges, `interrupt()` for approval |
+| Persistence | SQLite — `SqliteSaver` checkpoints plus `runs` / `decisions` / `events` / `snapshots` |
+| LLM | Groq via `langchain-groq`, structured output through `json_schema` |
+| Cloud | boto3 → EC2, CloudWatch, STS |
+| Notifications | Slack approvals (Block Kit, signature verified), owner email via SES |
+| Schemas | Pydantic v2 |
 
-Pressure test — every answer must be yes:
+The pipeline is real end to end — no mocked nodes. `investigate` queries CloudWatch, `execute` calls
+boto3, `verify` re-reads actual state, and `routing.py` branches on the verdict so a `keep` never
+reaches the approval gate.
 
-1. Can we name **one person** (a role at a moment)?
-2. Can we cite **evidence** (figure + source + date)?
-3. Would that person **recognise themselves**?
-4. Does it **survive a different solution** — would this problem still exist if agentic AI had never been invented?
-
-The problem statement stays technology-free. A **separate** solution overview argues why agentic AI
-earns its place: name the planning, the acting and the adapting, and explain what a fixed workflow
-would miss. Both are graded.
-
-### 2.7 Agent classes (digital)
-
-Information · Extraction · **Transaction** · **Decision-Support** · Creative/Generative ·
-**Orchestration** · Personalized · **Embedded**
-
-> CloudCleaner sits in **Decision-Support + Transaction + Orchestration** (and Embedded, if the Slack
-> approval loop lands). Say this explicitly in the deck.
-
-### 2.8 Best practices the graders expect
-
-- **Context rot is real** — build short, single-purpose agents that do one job and exit.
-- **Bound every loop** — a hard iteration cap held in state, ignoring the model's judgement.
-- **Descriptions are the interface** — tool names/descriptions/param docs are the highest-leverage prompt text.
-- **Keep payloads small** — return small typed results; hold large objects in state, not in the prompt.
-- Typed state with reducers where nodes write concurrently; `InMemorySaver` + `thread_id` for conversation; read model IDs from a constant; treat `allowed_tools` as a security boundary.
-- Error handling: baseline = functional resilience; **going further = make errors actionable for business users**.
-- Code readability, logical folder structure (`src/ docs/ data/ tests/`), concise docs.
-
-### 2.9 Evaluation metrics for digital agents (pick some for the deck)
-
-1. **Schema validation pass rate** — outputs that parse/validate first try.
-2. **Tool-call success rate** — calls returning a usable result.
-3. **Task completion rate** — resolved end to end with no human finishing the job.
-4. **Token cost per run** — input + output + cache tokens.
-5. **Loop discipline** — iterations per task vs. the cap.
-6. **Answer fidelity** — scored against reviewed ground truth (rubric or LLM judge).
-
-> For CloudCleaner these map cleanly: recommendation accuracy against a labelled set of instances,
-> boto3 tool-call success rate, % of investigations reaching a decision without human research,
-> and cost per investigation.
-
-### 2.10 Deck structure (10 slides)
-
-1. Title & team · 2. Problem & why it matters (with data) · 3. Solution overview · 4. Methodology ·
-5. Technical architecture · 6. Innovation & uniqueness · 7. Benefits delivered (quantified) ·
-8. Demo preview · 9. Roadmap · 10. Conclusion & call to action
-
-One core message per slide. Use diagrams. Replace "improves efficiency" with "reduces processing time by 30%".
-
-### 2.11 Video structure (5 minutes)
-
-0:00 hook → 0:30 problem in action → 1:00 solution overview → **1:30–3:30 the demo** →
-3:30 impact & metrics → 4:15 close. Show the agent **deciding and acting**, narrate the reasoning,
-and point at where it plans, acts, and adapts.
-
-### 2.12 AWS account rules and cost limits
-
-- Sign-in: `https://d-9667b91afb.awsapps.com/start`, username `hackathon2026,<group-leader-email>` (note the comma, no spaces). One account leased per team, group leader registers, 2FA secret shared with teammates.
-- **Region: `us-east-1`.** Access-denied errors are usually the wrong region.
-- **Access keys expire every 12 hours** — re-login through the portal to refresh them, then update `.env`.
-- **Budget: $20 revokes account access, $30 terminates the account and its resources.** Monitor the budget bar; reporting lags a few hours. Extra leases are generally not granted.
-- **Do not spin up:** OpenSearch, SageMaker real-time endpoints, NAT Gateway, ALB/NLB, Bedrock Provisioned Throughput, or always-on EC2/RDS.
-- **Prefer serverless:** Bedrock on-demand (Nova Micro/Lite, Claude Haiku), Lambda (+ Function URLs), DynamoDB on-demand, S3 and S3 Vectors, Bedrock Knowledge Bases.
-
-> ⚠️ **Direct conflict with our demo.** CloudCleaner needs real EC2 instances to detect, and the guide
-> says stop and rethink before launching a server. Keep demo instances on the smallest type, run them
-> only long enough to generate 7 days of CloudWatch data (or shorten the metric window), and stop
-> everything between working sessions. Budget: $20 is the hard wall.
-
-### 2.13 Taught stack vs. our stack
-
-The training taught: Bedrock (`InvokeModel` / Converse / `ChatBedrockConverse`) with Claude Haiku 4.5
-as default, LangGraph / DeepAgents / Claude Agent SDK for orchestration, Pydantic schemas, MCP for
-tools, AG-UI for the agent-facing UI, OTEL for observability, and Bedrock AgentCore Runtime for
-deployment (`@app.entrypoint`, `POST /invocations`, `GET /ping`).
-
-We currently run **Groq + LangGraph + CopilotKit/AG-UI**. Groq is legitimate — Session 1 labs ran
-entirely on Groq and it keeps the AWS budget for infrastructure rather than tokens. Worth a line in
-the deck explaining the choice, and AgentCore deployment is an obvious roadmap slide.
-
----
+| Where to look | What's there |
+|---|---|
+| `policy/dependencies.py` | Kahn's algorithm with cycle detection — the teardown ordering |
+| `tools/aws/cost.py` | Price List lookups with local fallbacks; separates cost-while-stopped from cost-while-running |
+| `policy/risk.py`, `safety.py` | Risk scoring and hard gates, run at assess time *and* again at execute time |
+| `tools/github/` | Commits, branches, PRs, CI runs |
+| `storage/` | Run history, and prior human decisions fed back into the prompt |
+| `monitoring.py` | Scheduled re-scan loop, also triggerable over HTTP |
+| `fixtures/demo.py` | The offline demo account |
 
 ## Repository layout
 
@@ -273,27 +238,28 @@ CloudCleaner/
 │   │   ├── cli.py               # scan / sweep / investigate / history / doctor / serve
 │   │   └── server.py            # the FastAPI app (both entrypoints serve this)
 │   ├── scripts/                 # connection smoke tests + evaluation harness
-│   ├── tests/                   # 108 tests
+│   ├── tests/                   # 111 tests
 │   ├── main.py                  # thin shim over server.py, run by `npm run dev`
 │   └── pyproject.toml           # published to PyPI as cloudcleaner-agent
 ├── app/
 │   ├── src/
 │   │   ├── app/page.tsx         # the dashboard
 │   │   ├── components/cloudcleaner/   # views, shell, primitives, pixel art
-│   │   └── lib/api.ts           # typed client for the FastAPI backend
-│   ├── scripts/                 # logo + slide-figure generators
+│   │   └── lib/api.ts           # typed client for the backend
+│   ├── scripts/                 # logo + diagram generators
 │   └── package.json
-├── .env.example
-└── references/                  # hackathon PDFs (source for Part 2)
+└── .env.example
 ```
 
-## Reference materials
+## Known gaps
 
-| File | Track | Contents |
-|---|---|---|
-| `(Kick-off) Agentic AI Hackathon 2026_14 Aug.pdf` | Both | Problem statement, dates, prizes, tech stack |
-| `IGNITE - Agentic AI Hackathon - Session 1_17 Aug.pdf` | Software | LLM foundations, agent anatomy, planning strategies, memory, prompt engineering, Bedrock |
-| `IGNITE - Agentic AI Hackathon - Session 2_18 Aug.pdf` | Software | LangGraph state/nodes/edges/routing, DeepAgents, Claude Agent SDK, AgentCore deployment |
-| `IGNITE_Agentic_AI_Hackathon_Functional_Training_Session_3_24_Aug.pdf` | Both | Problem framing, agent classes, best practices, case studies, metrics, **judging criteria & submission rules** |
-| `IGNITE Hackathon 2026 AWS accounts access guide for students.pdf` | Both | Account leasing, access keys, budget limits, service guidance |
-| `IGNITE - Agentic AI Hackathon Slides_25 Aug.pdf` | **Physical — ignored** | Unitree quadruped, SportClient, NaVILA |
+Worth saying out loud rather than letting you find them:
+
+- **Nothing has run against a real AWS account.** Every boto3 path is exercised through fixtures.
+- **Snapshots are listed and priced but never scanned** — `detect_node` doesn't call
+  `list_snapshots()` yet.
+- **The frontend still carries unused CopilotKit starter code** —
+  `app/src/app/declarative-generative-ui/`, the a2ui hooks, and `agent/src/`. The CloudCleaner UI
+  never imports any of it, and it's the source of the only TypeScript errors in the project.
+- **Coverage is three resource types.** RDS, NAT gateways, load balancers and ElastiCache are the
+  obvious next ones, and they're where the bigger money usually hides.
